@@ -142,9 +142,6 @@ class TowerDetecter:
         self.bi_grey_img *= 255
         self.tAddImg('bi img', self.bi_grey_img)
 
-
-
-
         self.grey_img = cv2.inRange(self.hsv_img, (0.0, 0.0, 76),
                                     (180, 33, 240))
         self.tAddImg('grey', self.grey_img)
@@ -162,12 +159,11 @@ class TowerDetecter:
                         (self.r[i, j] + self.g[i, j]) < 0.9 * (self.r[i, j] + self.g[i, j] + self.b[i, j]) and \
                         self.g[i, j] < 0.95 * (self.r[i, j] + self.g[i, j] + self.b[i, j]):
                     self.both_img[i, j] = 255
-                elif self.g[i,j]>0.99 * (self.r[i,j]+self.g[i,j]+self.b[i,j]):
-                    self.wrong_color_img[i,j] = 255
-                elif self.r[i,j]+self.g[i,j] > 0.95*(self.r[i,j]+self.g[i,j]+self.b[i,j]) and \
-                        abs(self.r[i,j]-self.g[i,j]) < 0.05 * ((self.r[i,j]+self.g[i,j]+self.b[i,j])):
-                    self.wrong_color_img[i,j]= 255
-
+                elif self.g[i, j] > 0.99 * (self.r[i, j] + self.g[i, j] + self.b[i, j]):
+                    self.wrong_color_img[i, j] = 255
+                elif self.r[i, j] + self.g[i, j] > 0.95 * (self.r[i, j] + self.g[i, j] + self.b[i, j]) and \
+                        abs(self.r[i, j] - self.g[i, j]) < 0.05 * ((self.r[i, j] + self.g[i, j] + self.b[i, j])):
+                    self.wrong_color_img[i, j] = 255
 
         self.tAddImg('both', self.both_img)
 
@@ -202,15 +198,30 @@ class TowerDetecter:
         fgdModel = np.zeros((1, 65), np.float64)
         mask = np.zeros_like(self.threshold_line_img, np.uint8)
         mask[np.where(self.threshold_line_img > 0)] = cv2.GC_FGD
-        mask[np.where(self.wrong_color_img>200)] = cv2.GC_BGD
+        mask[np.where(self.wrong_color_img > 200)] = cv2.GC_BGD
         mask, bgdModel, fgdModel = cv2.grabCut(self.src_img, mask,
                                                None, bgdModel,
                                                fgdModel, 5, cv2.GC_INIT_WITH_MASK)
         mask = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
         mask = self.src_img * mask[:, :, np.newaxis]
-        self.fgd_img = cv2.cvtColor(self.src_img, cv2.COLOR_RGB2RGBA)
+        self.result_img = self.src_img.copy  # .cvtColor(self.src_img, cv2.COLOR_RGB2RGBA)
         self.tAddImg('mask', mask)
         self.tAddImg('wrong img', self.wrong_color_img)
+
+        windows_size = 150
+        step_len = 150
+        red_windows = np.zeros_like(self.src_img[:windows_size, :windows_size])
+        red_windows[:, :, 0] = 255
+
+        for i in range(0, self.src_img.shape[0] - windows_size - 1, step_len):
+            for j in range(0, self.src_img.shape[1] - windows_size - 1, step_len):
+                if np.sum(mask[i:i + windows_size, j:j + windows_size]) > 10:
+                    self.result_img[i:i + windows_size,j:j + windows_size] = cv2.addWeighted(self.result_img[i:i + windows_size,
+                                                                                             j:j + windows_size],
+                                                                                             0.5,
+                                                          red_windows,
+                                                                                             0.5, 0.0)
+        self.tAddImg('result', self.result_img)
 
     def pltShow(self, index=0):
         plt.figure(index)
