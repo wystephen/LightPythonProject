@@ -160,12 +160,38 @@ class TowerDetecter:
             for j in range(self.both_img.shape[1]):
                 if self.bi_grey_img[i, j] > 100 and self.grey_img[i, j] > 100 and \
                         self.b[i, j] < min(self.r[i, j], self.g[i, j]) and \
-                        self.g[i, j] < max(self.r[i, j] , self.b[i, j]):
+                        self.g[i, j] < (self.r[i, j] + self.b[i, j]):
                     self.both_img[i, j] = 255
         self.tAddImg('both', self.both_img)
 
         ret, self.threshold_img = cv2.threshold(self.both_img, 100, 255, cv2.THRESH_BINARY)
         self.tAddImg('threshold', self.threshold_img)
+
+
+        self.morph_img = cv2.morphologyEx(self.threshold_img,cv2.MORPH_CLOSE,
+                                         cv2.getStructuringElement(cv2.MORPH_RECT,(3,3)))
+
+        self.tAddImg('closed', self.morph_img)
+
+
+        edges = cv2.Canny(cv2.cvtColor(self.hsv_img,cv2.COLOR_RGB2GRAY),
+                          50, 150, apertureSize=3)
+        lines = cv2.HoughLines(edges, 1, np.pi / 180, 118)
+        result = self.src_img.copy()
+
+        # 经验参数
+        minLineLength = 200
+        maxLineGap = 15
+        lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 80, minLineLength, maxLineGap)
+        for x1, y1, x2, y2 in lines[0]:
+            cv2.line(result, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        self.tAddImg('lines',result)
+        self.tAddImg('edge', edges)
+
+
+
+
+
 
     def pltShow(self, index=0):
         plt.figure(index)
