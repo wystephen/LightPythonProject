@@ -18,9 +18,9 @@ if __name__ == '__main__':
     # load all image in the dataset
     for name in os.listdir('./image'):
         ti+=1
-        # if not ti is 2:
+        # if not ti is 5:
         #     continue
-        print(name)
+        # print(name)
         t_name = 'image\\' + name
         im = cv2.imread(t_name)
         td = PowerTowerDetector.TowerDetecter(im, False)

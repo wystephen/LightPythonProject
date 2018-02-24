@@ -4,14 +4,14 @@
 import cv2
 import skimage
 from skimage.filters import gabor_kernel
-from skimage import  measure
+from skimage import measure
 
 import numpy as np
 import scipy as sp
 
 import matplotlib.pyplot as plt
 
-
+import math
 
 
 class TowerDetecter:
@@ -127,40 +127,45 @@ class TowerDetecter:
 
         self.std_img = np.std(self.src_img.copy().astype(dtype=np.float),
                               axis=2)
-        self.bi_grey_img = np.ones_like(self.std_img,dtype=np.uint8)
-        self.bi_grey_img[np.where(self.std_img<1)] = 0
-        self.bi_grey_img[np.where(self.std_img>7)] = 0
+        self.bi_grey_img = np.ones_like(self.std_img, dtype=np.uint8)
+        self.bi_grey_img[np.where(self.std_img < 1)] = 0
+        self.bi_grey_img[np.where(self.std_img > 7)] = 0
         self.bi_grey_img *= 255
-        self.tAddImg('bi img',self.bi_grey_img)
+        self.tAddImg('bi img', self.bi_grey_img)
 
         # print(self.hsv_img.shape)
-        # self.h = self.hsv_img[:,:,0]
-        # self.s = self.hsv_img[:,:,1]
-        # self.v = self.hsv_img[:,:,2]
+        self.h = self.hsv_img[:, :, 0]
+        self.s = self.hsv_img[:, :, 1]
+        self.v = self.hsv_img[:, :, 2]
+
+        self.r = self.src_img[:, :, 0]
+        self.g = self.src_img[:, :, 1]
+        self.b = self.src_img[:, :, 2]
 
         # self.tAddImg('h',self.h)
         # self.tAddImg('s',self.s)
         # self.tAddImg('v',self.v)
 
-        self.grey_img = cv2.inRange(self.hsv_img,(0.0,0.0,46),
-                                    (180,43,220))
-        self.tAddImg('grey',self.grey_img)
+        self.grey_img = cv2.inRange(self.hsv_img, (0.0, 0.0, 76),
+                                    (180, 33, 240))
+        self.tAddImg('grey', self.grey_img)
 
-        self.both_img = np.zeros(self.bi_grey_img,dtype=float)
+        self.both_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)
 
-        self.both_img[np.where(self.bi_grey_img>100)&np.where(self.grey_img>100)] = 255
+        # print(self.grey_img)
+        # self.both_img[np.where(self.bi_grey_img<1)
+        #               & np.where(self.grey_img<1)] = 255
 
-        self.tAddImg('both',self.both_img)
+        for i in range(self.both_img.shape[0]):
+            for j in range(self.both_img.shape[1]):
+                if self.bi_grey_img[i, j] > 100 and self.grey_img[i, j] > 100 and \
+                        self.b[i, j] < min(self.r[i, j], self.g[i, j]) and \
+                        self.g[i, j] < max(self.r[i, j] , self.b[i, j]):
+                    self.both_img[i, j] = 255
+        self.tAddImg('both', self.both_img)
 
-
-
-
-
-
-
-
-
-
+        ret, self.threshold_img = cv2.threshold(self.both_img, 100, 255, cv2.THRESH_BINARY)
+        self.tAddImg('threshold', self.threshold_img)
 
     def pltShow(self, index=0):
         plt.figure(index)
