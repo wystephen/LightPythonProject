@@ -79,7 +79,7 @@ class TowerDetecter:
 
         lines = cv2.HoughLinesP(tmp, 3.0, np.pi / 180,
                                 200,
-                                minLineLength=self.src_img.shape[0]/ 6,
+                                minLineLength=self.src_img.shape[0] / 6,
                                 maxLineGap=50)
         # print(lines.shape)
         # for x1, y1, x2, y2 in lines[0]:
@@ -90,6 +90,14 @@ class TowerDetecter:
             y2 = lines[index, 0, 3]
             cv2.line(self.line_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
         self.tAddImg('line_img', self.line_img)
+
+        self.orb_img = self.src_img.copy()
+        orb = cv2.ORB_create()
+        kp = orb.detect(self.orb_img, None)
+        kp, des = orb.compute(self.orb_img, kp)
+
+        self.orb_img = cv2.drawKeypoints(self.orb_img, kp, None, color=(0, 222, 0), flags=0)
+        self.tAddImg('orb img', self.orb_img)
 
         # print(tmp.min(), tmp.max(), tmp.std())
 
