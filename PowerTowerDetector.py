@@ -164,6 +164,8 @@ class TowerDetecter:
                 elif self.r[i, j] + self.g[i, j] > 0.95 * (self.r[i, j] + self.g[i, j] + self.b[i, j]) and \
                         abs(self.r[i, j] - self.g[i, j]) < 0.05 * ((self.r[i, j] + self.g[i, j] + self.b[i, j])):
                     self.wrong_color_img[i, j] = 255
+                elif self.r[i,j] > 0.9 * ((self.r[i, j] + self.g[i, j] + self.b[i, j])):
+                    self.wrong_color_img[i, j] = 255
 
         self.tAddImg('both', self.both_img)
 
@@ -178,7 +180,7 @@ class TowerDetecter:
         result = self.src_img.copy()
         # 经验参数
         minLineLength = 130
-        maxLineGap = 30
+        maxLineGap = 20
         lines = (transform.probabilistic_hough_line(self.morph_img, threshold=50,
                                                     line_length=minLineLength,
                                                     line_gap=maxLineGap))
@@ -204,23 +206,29 @@ class TowerDetecter:
                                                fgdModel, 5, cv2.GC_INIT_WITH_MASK)
         mask = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
         mask = self.src_img * mask[:, :, np.newaxis]
-        self.result_img = self.src_img.copy  # .cvtColor(self.src_img, cv2.COLOR_RGB2RGBA)
+        self.result_img = self.src_img.copy()  # .cvtColor(self.src_img, cv2.COLOR_RGB2RGBA)
         self.tAddImg('mask', mask)
         self.tAddImg('wrong img', self.wrong_color_img)
 
-        windows_size = 150
-        step_len = 150
-        red_windows = np.zeros_like(self.src_img[:windows_size, :windows_size])
-        red_windows[:, :, 0] = 255
+        windows_size = 30
+        step_len = 10
 
-        for i in range(0, self.src_img.shape[0] - windows_size - 1, step_len):
-            for j in range(0, self.src_img.shape[1] - windows_size - 1, step_len):
-                if np.sum(mask[i:i + windows_size, j:j + windows_size]) > 10:
-                    self.result_img[i:i + windows_size,j:j + windows_size] = cv2.addWeighted(self.result_img[i:i + windows_size,
-                                                                                             j:j + windows_size],
-                                                                                             0.5,
-                                                          red_windows,
-                                                                                             0.5, 0.0)
+        self.tmp_mask_layer_img = np.zeros_like(self.src_img)
+        for i in range(0, self.src_img.shape[0] - windows_size, step_len):
+            for j in range(0, self.src_img.shape[1] - windows_size, step_len):
+                if np.sum(mask[i:i + windows_size, j:j + windows_size]) > 50:
+                    self.tmp_mask_layer_img[i:i + windows_size, j:j + windows_size, 2] = 255
+        self.smooth_img = self.tmp_mask_layer_img[:,:,2]
+
+        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_OPEN,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
+        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_CLOSE,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
+        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_OPEN,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
+        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_CLOSE,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
+        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_OPEN,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
+        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_CLOSE,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
+        self.smooth_img = cv2.erode(self.smooth_img,cv2.getStructuringElement(cv2.MORPH_RECT,(30,30)))
+        self.tAddImg('smoothed',self.smooth_img)
+        self.result_img = cv2.addWeighted(self.result_img, 0.6, self.tmp_mask_layer_img, 0.4, 0)
         self.tAddImg('result', self.result_img)
 
     def pltShow(self, index=0):
