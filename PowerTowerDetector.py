@@ -2,10 +2,10 @@
 # carete by steve at  2018 / 02 / 24　14:44
 
 import cv2
-import skimage_test
-from skimage_test.filters import gabor_kernel
-from skimage_test import measure
-from skimage_test import transform
+import skimage
+from skimage.filters import gabor_kernel
+from skimage import measure
+from skimage import transform
 
 import numpy as np
 import scipy as sp
@@ -125,16 +125,6 @@ class TowerDetecter:
         self.hsv_img = cv2.cvtColor(self.src_img,
                                     cv2.COLOR_RGB2HSV)
         self.tAddImg('hsvimg', self.hsv_img)
-
-        self.std_img = np.std(self.src_img.copy().astype(dtype=np.float),
-                              axis=2)
-        self.bi_grey_img = np.ones_like(self.std_img, dtype=np.uint8)
-        self.bi_grey_img[np.where(self.std_img < 1)] = 0
-        self.bi_grey_img[np.where(self.std_img > 7)] = 0
-        self.bi_grey_img *= 255
-        self.tAddImg('bi img', self.bi_grey_img)
-
-        # print(self.hsv_img.shape)
         self.h = self.hsv_img[:, :, 0]
         self.s = self.hsv_img[:, :, 1]
         self.v = self.hsv_img[:, :, 2]
@@ -143,15 +133,24 @@ class TowerDetecter:
         self.g = self.src_img[:, :, 1]
         self.b = self.src_img[:, :, 2]
 
-        # self.tAddImg('h',self.h)
-        # self.tAddImg('s',self.s)
-        # self.tAddImg('v',self.v)
+        self.std_img = np.std(self.src_img.copy().astype(dtype=np.float),
+                              axis=2)
+
+        self.bi_grey_img = np.ones_like(self.std_img, dtype=np.uint8)
+        self.bi_grey_img[np.where(self.std_img < 1)] = 0
+        self.bi_grey_img[np.where(self.std_img > 7)] = 0
+        self.bi_grey_img *= 255
+        self.tAddImg('bi img', self.bi_grey_img)
+
+
+
 
         self.grey_img = cv2.inRange(self.hsv_img, (0.0, 0.0, 76),
                                     (180, 33, 240))
         self.tAddImg('grey', self.grey_img)
 
         self.both_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)
+        self.wrong_color_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)
 
         # print(self.grey_img)
         # self.both_img[np.where(self.bi_grey_img<1)
@@ -160,51 +159,58 @@ class TowerDetecter:
         for i in range(self.both_img.shape[0]):
             for j in range(self.both_img.shape[1]):
                 if self.bi_grey_img[i, j] > 100 and self.grey_img[i, j] > 100 and \
-                        self.b[i, j] < min(self.r[i, j], self.g[i, j]) and \
-                        self.g[i, j] < (self.r[i, j] + self.b[i, j]):
+                        (self.r[i, j] + self.g[i, j]) < 0.9 * (self.r[i, j] + self.g[i, j] + self.b[i, j]) and \
+                        self.g[i, j] < 0.95 * (self.r[i, j] + self.g[i, j] + self.b[i, j]):
                     self.both_img[i, j] = 255
+                elif self.g[i,j]>0.99 * (self.r[i,j]+self.g[i,j]+self.b[i,j]):
+                    self.wrong_color_img[i,j] = 255
+                elif self.r[i,j]+self.g[i,j] > 0.95*(self.r[i,j]+self.g[i,j]+self.b[i,j]) and \
+                        abs(self.r[i,j]-self.g[i,j]) < 0.05 * ((self.r[i,j]+self.g[i,j]+self.b[i,j])):
+                    self.wrong_color_img[i,j]= 255
+
+
         self.tAddImg('both', self.both_img)
 
         ret, self.threshold_img = cv2.threshold(self.both_img, 100, 255, cv2.THRESH_BINARY)
         self.tAddImg('threshold', self.threshold_img)
 
-
-        self.morph_img = cv2.morphologyEx(self.threshold_img,cv2.MORPH_CLOSE,
-                                         cv2.getStructuringElement(cv2.MORPH_RECT,(3,3)))
+        self.morph_img = cv2.morphologyEx(self.threshold_img, cv2.MORPH_CLOSE,
+                                          cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
 
         self.tAddImg('closed', self.morph_img)
 
-
-        edges = cv2.Canny(cv2.cvtColor(self.hsv_img,cv2.COLOR_RGB2GRAY),
-                          50, 150, apertureSize=3)
-        lines = cv2.HoughLines(edges, 1, np.pi / 180, 118)
         result = self.src_img.copy()
-
         # 经验参数
-        minLineLength = 150
-        maxLineGap = 10
-        # lines = cv2.HoughLinesP(edges, 1, np.pi /360, 100, minLineLength, maxLineGap)
-        # print(lines.shape)
-        lines  = (transform.probabilistic_hough_line(edges,threshold=70,
-                                                     line_length=minLineLength,
-                                                     line_gap=maxLineGap))
-        # if lines:
-        # for index in range(lines.shape[0]):
-        #     x1 = lines[index,0,0]
-        #     y1 = lines[index,0,1]
-        #     x2 = lines[index,0,2]
-        #     y2 = lines[index,0,3]
-        #     cv2.line(result, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        for (x1,y1),(x2,y2) in lines:
+        minLineLength = 130
+        maxLineGap = 30
+        lines = (transform.probabilistic_hough_line(self.morph_img, threshold=50,
+                                                    line_length=minLineLength,
+                                                    line_gap=maxLineGap))
+        self.line_mask_img = np.zeros_like(self.src_img)
+        for (x1, y1), (x2, y2) in lines:
             cv2.line(result, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.line(self.line_mask_img, (x1, y1), (x2, y2), (255, 255, 255), 2)
 
-        self.tAddImg('lines',result)
-        self.tAddImg('edge', edges)
+        self.tAddImg('lines', result)
 
+        ret, self.threshold_line_img = cv2.threshold(cv2.cvtColor(self.line_mask_img, cv2.COLOR_RGB2GRAY),
+                                                     100, 255, cv2.THRESH_BINARY)
 
+        self.tAddImg('threshold line img', self.threshold_line_img)
 
-
-
+        bgdModel = np.zeros((1, 65), np.float64)
+        fgdModel = np.zeros((1, 65), np.float64)
+        mask = np.zeros_like(self.threshold_line_img, np.uint8)
+        mask[np.where(self.threshold_line_img > 0)] = cv2.GC_FGD
+        mask[np.where(self.wrong_color_img>200)] = cv2.GC_BGD
+        mask, bgdModel, fgdModel = cv2.grabCut(self.src_img, mask,
+                                               None, bgdModel,
+                                               fgdModel, 5, cv2.GC_INIT_WITH_MASK)
+        mask = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+        mask = self.src_img * mask[:, :, np.newaxis]
+        self.fgd_img = cv2.cvtColor(self.src_img, cv2.COLOR_RGB2RGBA)
+        self.tAddImg('mask', mask)
+        self.tAddImg('wrong img', self.wrong_color_img)
 
     def pltShow(self, index=0):
         plt.figure(index)
