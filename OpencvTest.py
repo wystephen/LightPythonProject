@@ -17,16 +17,19 @@ if __name__ == '__main__':
     ti = 0
     # load all image in the dataset
     for name in os.listdir('./image'):
+        ti+=1
+        # if not ti is 2:
+        #     continue
         print(name)
         t_name = 'image\\' + name
         im = cv2.imread(t_name)
         td = PowerTowerDetector.TowerDetecter(im, False)
         td.preprocess()
 
-        # cv2.waitKey()
-        ti+=1
-        td.pltShow(ti)
+        cv2.waitKey()
+
+        # td.pltShow(ti)
 
         detector_list.append(td)
-        break
+        # break
     plt.show()

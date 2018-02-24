@@ -23,8 +23,10 @@ class TowerDetecter:
         self.tAddImg('src_img', self.src_img)
 
     def tAddImg(self, str_name, img):
-        self.img_name_list.append(str_name)
-        self.img_list.append(img)
+        # self.img_name_list.append(str_name)
+        # self.img_list.append(img)
+        cv2.namedWindow(str_name, cv2.WINDOW_GUI_NORMAL)
+        cv2.imshow(str_name, img)
 
     '''
     Pre-process the image
@@ -57,18 +59,39 @@ class TowerDetecter:
         self.back_img = knn.apply(self.src_img)
         # self.tAddImg('back_img',self.back_img)
         tmp = ((self.dis_img.copy() / np.max(self.dis_img) * 254 + 1).astype(dtype=np.uint8).copy())
+        # tmp = cv2.adaptiveThreshold(tmp, 100,
+        #                             adaptiveMethod=cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        #                             blockSize=121,
+        #                             thresholdType=cv2.THRESH_BINARY,
+        #                             C=0)
         # self.threshold_
-        # self.canny_img = cv2.Canny(tmp,
-        #                            50,
-        #                            552
-        #                            )
-        self.canny_img = cv2.Laplacian(tmp,cv2.CV_8U)
+        self.canny_img = cv2.Canny(tmp,
+                                   150,
+                                   200
+                                   )
+        # self.canny_img = cv2.Laplacian(tmp, cv2.CV_8U)
         # self.canny_img = cv2.Laplacian(self.dis_img/np.max(self.dis_img), cv2.CV_64FC1)
         self.tAddImg('canny', self.canny_img)
-        cv2.imshow('canny', self.canny_img)
+        # cv2.imshow('canny', self.canny_img)
         self.tAddImg('tmp', tmp)
 
-        print(tmp.min(), tmp.max(), tmp.std())
+        self.line_img = cv2.cvtColor(tmp, cv2.COLOR_GRAY2BGR)
+
+        lines = cv2.HoughLinesP(tmp, 3.0, np.pi / 180,
+                                200,
+                                minLineLength=self.src_img.shape[0]/ 6,
+                                maxLineGap=50)
+        # print(lines.shape)
+        # for x1, y1, x2, y2 in lines[0]:
+        for index in range(lines.shape[0]):
+            x1 = lines[index, 0, 0]
+            y1 = lines[index, 0, 1]
+            x2 = lines[index, 0, 2]
+            y2 = lines[index, 0, 3]
+            cv2.line(self.line_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        self.tAddImg('line_img', self.line_img)
+
+        # print(tmp.min(), tmp.max(), tmp.std())
 
         # plt.figure()
         # plt.imshow(self.strength_img+self.dis_img)
