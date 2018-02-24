@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
         cv2.waitKey()
 
-        # td.pltShow(ti)
+        cv2.imwrite('res_image\\'+name, td.result_img)
 
         detector_list.append(td)
         # break

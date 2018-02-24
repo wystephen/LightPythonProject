@@ -25,7 +25,7 @@ class TowerDetecter:
         # self.src_img = img
         scale = 1.0
         if img.shape[0] > 50:
-            scale = int(img.shape[0] / 500.0)
+            scale = int(img.shape[0] / 1000.0)
 
         # self.src_img = img
         self.src_img = cv2.resize(img,
@@ -39,8 +39,9 @@ class TowerDetecter:
     def tAddImg(self, str_name, img):
         # self.img_name_list.append(str_name)
         # self.img_list.append(img)
-        cv2.namedWindow(str_name, cv2.WINDOW_GUI_NORMAL)
-        cv2.imshow(str_name, img)
+        if self.debug_flag:
+            cv2.namedWindow(str_name, cv2.WINDOW_GUI_NORMAL)
+            cv2.imshow(str_name, img)
 
     '''
     Pre-process the image
@@ -219,13 +220,13 @@ class TowerDetecter:
         print('mask shape ',mask.shape)
         self.total_line_point = cv2.filter2D(mask[:,:,0],-1,fil)
         print(self.total_line_point.shape)
-        median_num = np.median(self.total_line_point)
+        median_num = np.mean(self.total_line_point)
         tmp_red_img = np.zeros_like(self.tmp_mask_layer_img[:,:,2])
         tmp_red_img[np.where(self.total_line_point>median_num)] = 255
         self.tmp_mask_layer_img[:,:,2] = tmp_red_img
 
         # self.smooth_img = cv2.erode(self.smooth_img,cv2.getStructuringElement(cv2.MORPH_RECT,(30,30)))
-        self.tAddImg('smoothed', self.smooth_img)
+        # self.tAddImg('smoothed', self.smooth_img)
         self.result_img = cv2.addWeighted(self.result_img, 0.6, self.tmp_mask_layer_img, 0.4, 0)
         self.tAddImg('result', self.result_img)
 
