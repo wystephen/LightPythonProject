@@ -56,14 +56,19 @@ class TowerDetecter:
         knn = cv2.createBackgroundSubtractorKNN()
         self.back_img = knn.apply(self.src_img)
         # self.tAddImg('back_img',self.back_img)
-
+        tmp = ((self.dis_img.copy() / np.max(self.dis_img) * 254 + 1).astype(dtype=np.uint8).copy())
         # self.threshold_
-        self.canny_img = cv2.Canny((self.dis_img.copy() / self.dis_img.max() * 254 + 1).astype(dtype=np.uint8).copy(),
-                                   0,
-                                   2
-                                   )
+        # self.canny_img = cv2.Canny(tmp,
+        #                            50,
+        #                            552
+        #                            )
+        self.canny_img = cv2.Laplacian(tmp,cv2.CV_8U)
+        # self.canny_img = cv2.Laplacian(self.dis_img/np.max(self.dis_img), cv2.CV_64FC1)
         self.tAddImg('canny', self.canny_img)
-        self.tAddImg('tmp', (self.dis_img.copy() / np.max(self.dis_img) * 254 + 1).astype(dtype=np.uint8).copy())
+        cv2.imshow('canny', self.canny_img)
+        self.tAddImg('tmp', tmp)
+
+        print(tmp.min(), tmp.max(), tmp.std())
 
         # plt.figure()
         # plt.imshow(self.strength_img+self.dis_img)
@@ -77,5 +82,5 @@ class TowerDetecter:
             #     continue
             plt.subplot(3, len(self.img_list) / 3 + 1, i + 1)
             plt.imshow(self.img_list[i] / np.mean(self.img_list[i]))
-            plt.colorbar()
+            # plt.colorbar()
             plt.title(self.img_name_list[i])
