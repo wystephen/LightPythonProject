@@ -16,11 +16,12 @@ import math
 
 
 class TowerDetecter:
-    '''
-    Set up image needed to be recognize.
-    '''
-
     def __init__(self, img, debug_flag=False):
+        '''
+
+        :param img:  input image
+        :param debug_flag: if true, the image will display through cv.imshow()
+        '''
         self.debug_flag = debug_flag
         # self.src_img = img
         scale = 1.0
@@ -37,109 +38,41 @@ class TowerDetecter:
         self.tAddImg('src_img', self.src_img)
 
     def tAddImg(self, str_name, img):
-        # self.img_name_list.append(str_name)
-        # self.img_list.append(img)
+        '''
+        display image with modified windows size.
+        :param str_name: name of the image,
+        :param img: image for display
+        :return:
+        '''
         if self.debug_flag:
             cv2.namedWindow(str_name, cv2.WINDOW_GUI_NORMAL)
             cv2.imshow(str_name, img)
 
     '''
-    Pre-process the image
+    process the image
     '''
-
-    def lower_preprocess(self):
-        self.std_img = np.std(self.src_img.copy().astype(dtype=np.float), axis=2)
-        self.std_img = self.std_img / np.max(self.std_img)
-        # self.img_list.append(self.dis_img)
-        # self.img_name_list.append('dis_img')
-        self.tAddImg('dis_img', self.std_img)
-
-        # self.processed_img = self.src_img
-        self.processed_img = cv2.cvtColor(self.src_img,
-                                          cv2.COLOR_BGR2HSV)
-
-        self.tAddImg('processed_img', self.processed_img)
-        grey_color = np.array([
-            [0, 0, 40],
-            [100, 100, 90]
-        ])
-        self.color_img = cv2.inRange(self.processed_img, grey_color[0], grey_color[1])
-        self.tAddImg('color_img', self.color_img)
-
-        self.strength_img = np.mean(self.src_img, axis=2)
-        self.strength_img = self.strength_img / np.max(self.strength_img)
-        # self.tAddImg('strength_img',self.strength_img)
-
-        knn = cv2.createBackgroundSubtractorKNN()
-        self.back_img = knn.apply(self.src_img)
-        # self.tAddImg('back_img',self.back_img)
-        tmp = ((self.std_img.copy() / np.max(self.std_img) * 254 + 1).astype(dtype=np.uint8).copy())
-        # tmp = cv2.adaptiveThreshold(tmp, 100,
-        #                             adaptiveMethod=cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        #                             blockSize=121,
-        #                             thresholdType=cv2.THRESH_BINARY,
-        #                             C=0)
-        # self.threshold_
-        # self.threshold_img = cv2.threshold(self.)
-        self.canny_img = cv2.Canny(tmp,
-                                   150,
-                                   200
-                                   )
-        # self.canny_img = cv2.Laplacian(tmp, cv2.CV_8U)
-        # self.canny_img = cv2.Laplacian(self.dis_img/np.max(self.dis_img), cv2.CV_64FC1)
-        self.tAddImg('canny', self.canny_img)
-        # cv2.imshow('canny', self.canny_img)
-        self.tAddImg('tmp', tmp)
-
-        self.line_img = cv2.cvtColor(tmp, cv2.COLOR_GRAY2BGR)
-
-        lines = cv2.HoughLinesP(tmp, 3.0, np.pi / 180,
-                                20,
-                                minLineLength=self.src_img.shape[0] / 6,
-                                maxLineGap=5)
-        # print(lines.shape)
-        # for x1, y1, x2, y2 in lines[0]:
-        for index in range(lines.shape[0]):
-            x1 = lines[index, 0, 0]
-            y1 = lines[index, 0, 1]
-            x2 = lines[index, 0, 2]
-            y2 = lines[index, 0, 3]
-            cv2.line(self.line_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        self.tAddImg('line_img', self.line_img)
-
-        self.orb_img = self.src_img.copy()
-        orb = cv2.ORB_create()
-        kp = orb.detect(self.orb_img, None)
-        kp, des = orb.compute(self.orb_img, kp)
-
-        self.orb_img = cv2.drawKeypoints(self.orb_img, kp, None, color=(0, 222, 0), flags=0)
-        self.tAddImg('orb img', self.orb_img)
-
-        # print(tmp.min(), tmp.max(), tmp.std())
-
-        # plt.figure()
-        # plt.imshow(self.strength_img+self.dis_img)
-        # plt.colorbar()
-        # plt.show()
-
     def preprocess(self):
+        # 用hSV 色彩空间表示 图像
         self.hsv_img = cv2.cvtColor(self.src_img,
                                     cv2.COLOR_RGB2HSV)
         self.tAddImg('hsvimg', self.hsv_img)
+        # hsv各个分量
         self.h = self.hsv_img[:, :, 0]
         self.s = self.hsv_img[:, :, 1]
         self.v = self.hsv_img[:, :, 2]
 
+        # rgb 各个分量
         self.r = self.src_img[:, :, 0]
         self.g = self.src_img[:, :, 1]
         self.b = self.src_img[:, :, 2]
 
+        # 每个像素三个通道的值的标准差（灰色r=g=b），所以越小越接近灰色
         self.std_img = np.std(self.src_img.copy().astype(dtype=np.float),
                               axis=2)
 
         self.bi_grey_img = np.ones_like(self.std_img, dtype=np.uint8)
-        self.bi_grey_img[np.where(self.std_img < 1)] = 0
-        self.bi_grey_img[np.where(self.std_img > 7)] = 0
+        self.bi_grey_img[np.where(self.std_img < 1)] = 0 # 排除白色（0，0，0）
+        self.bi_grey_img[np.where(self.std_img > 7)] = 0 # 排除非灰色系
         self.bi_grey_img *= 255
         self.tAddImg('bi img', self.bi_grey_img)
 
@@ -147,29 +80,32 @@ class TowerDetecter:
                                     (180, 33, 240))
         self.tAddImg('grey', self.grey_img)
 
-        self.both_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)
-        self.wrong_color_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)
-
-        # print(self.grey_img)
-        # self.both_img[np.where(self.bi_grey_img<1)
-        #               & np.where(self.grey_img<1)] = 255
+        self.both_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)#根据颜色判断可能是电线塔的像素
+        self.wrong_color_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)#根据颜色判断不可能是电线塔的像素
 
         for i in range(self.both_img.shape[0]):
             for j in range(self.both_img.shape[1]):
                 if self.bi_grey_img[i, j] > 100 and self.grey_img[i, j] > 100 and \
                         (self.r[i, j] + self.g[i, j]) < 0.9 * (self.r[i, j] + self.g[i, j] + self.b[i, j]) and \
                         self.g[i, j] < 0.95 * (self.r[i, j] + self.g[i, j] + self.b[i, j]):
+                    # 条件1： 在hsv色彩空间和 rgb色彩空间都表现为灰色
+                    # 条件2： 红色和绿色（混合为黄色）之和小于0。9。（排除土地）
+                    # 条件3： 绿色 占比小于 0。95。（排除绿色植物）
                     self.both_img[i, j] = 255
                 elif self.g[i, j] > 0.99 * (self.r[i, j] + self.g[i, j] + self.b[i, j]):
+                    # 纯绿色不可能是电线塔
                     self.wrong_color_img[i, j] = 255
                 elif self.r[i, j] + self.g[i, j] > 0.95 * (self.r[i, j] + self.g[i, j] + self.b[i, j]) and \
                         abs(self.r[i, j] - self.g[i, j]) < 0.05 * ((self.r[i, j] + self.g[i, j] + self.b[i, j])):
+                    # 黄色，不可能是电线塔
                     self.wrong_color_img[i, j] = 255
                 elif self.r[i, j] > 0.9 * ((self.r[i, j] + self.g[i, j] + self.b[i, j])):
+                    # 红色， 不可能是电线塔。
                     self.wrong_color_img[i, j] = 255
 
         self.tAddImg('both', self.both_img)
 
+        # 二值化并形态学闭运算。
         ret, self.threshold_img = cv2.threshold(self.both_img, 100, 255, cv2.THRESH_BINARY)
         self.tAddImg('threshold', self.threshold_img)
 
@@ -182,6 +118,7 @@ class TowerDetecter:
         # 经验参数
         minLineLength = 130
         maxLineGap = 30
+        # 直线检测，（电线杆上有直线，自然界直线比较少）
         lines = (transform.probabilistic_hough_line(self.morph_img, threshold=50,
                                                     line_length=minLineLength,
                                                     line_gap=maxLineGap))
@@ -202,6 +139,7 @@ class TowerDetecter:
         mask = np.zeros_like(self.threshold_line_img, np.uint8)
         mask[np.where(self.threshold_line_img > 0)] = cv2.GC_FGD
         mask[np.where(self.wrong_color_img > 200)] = cv2.GC_BGD
+        # 根据已经获得的一定是电线杆（前景fgd）和一定是背景（bgd）的部分通过grabcut算法获取电线杆轮廓
         mask, bgdModel, fgdModel = cv2.grabCut(self.src_img, mask,
                                                None, bgdModel,
                                                fgdModel, 5, cv2.GC_INIT_WITH_MASK)
@@ -216,6 +154,7 @@ class TowerDetecter:
 
         self.tmp_mask_layer_img = np.zeros_like(self.src_img)
 
+        # 根据区域内（大小由windows——size确定）前景的像素的数目确定是否标记为电线塔。
         fil = np.ones([windows_size, windows_size])
         print('mask shape ',mask.shape)
         self.total_line_point = cv2.filter2D(mask[:,:,0],-1,fil)
@@ -227,6 +166,7 @@ class TowerDetecter:
 
         # self.smooth_img = cv2.erode(self.smooth_img,cv2.getStructuringElement(cv2.MORPH_RECT,(30,30)))
         # self.tAddImg('smoothed', self.smooth_img)
+        # 混合标记和原始图像（使得被识别为电线塔的区域蒙上红色mask）
         self.result_img = cv2.addWeighted(self.result_img, 0.6, self.tmp_mask_layer_img, 0.4, 0)
         self.tAddImg('result', self.result_img)
 
