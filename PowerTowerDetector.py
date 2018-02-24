@@ -181,7 +181,7 @@ class TowerDetecter:
         result = self.src_img.copy()
         # 经验参数
         minLineLength = 130
-        maxLineGap = 20
+        maxLineGap = 30
         lines = (transform.probabilistic_hough_line(self.morph_img, threshold=50,
                                                     line_length=minLineLength,
                                                     line_gap=maxLineGap))
