@@ -164,7 +164,7 @@ class TowerDetecter:
                 elif self.r[i, j] + self.g[i, j] > 0.95 * (self.r[i, j] + self.g[i, j] + self.b[i, j]) and \
                         abs(self.r[i, j] - self.g[i, j]) < 0.05 * ((self.r[i, j] + self.g[i, j] + self.b[i, j])):
                     self.wrong_color_img[i, j] = 255
-                elif self.r[i,j] > 0.9 * ((self.r[i, j] + self.g[i, j] + self.b[i, j])):
+                elif self.r[i, j] > 0.9 * ((self.r[i, j] + self.g[i, j] + self.b[i, j])):
                     self.wrong_color_img[i, j] = 255
 
         self.tAddImg('both', self.both_img)
@@ -210,24 +210,22 @@ class TowerDetecter:
         self.tAddImg('mask', mask)
         self.tAddImg('wrong img', self.wrong_color_img)
 
-        windows_size = 30
+        windows_size = 50
         step_len = 10
 
         self.tmp_mask_layer_img = np.zeros_like(self.src_img)
-        for i in range(0, self.src_img.shape[0] - windows_size, step_len):
-            for j in range(0, self.src_img.shape[1] - windows_size, step_len):
-                if np.sum(mask[i:i + windows_size, j:j + windows_size]) > 50:
-                    self.tmp_mask_layer_img[i:i + windows_size, j:j + windows_size, 2] = 255
-        self.smooth_img = self.tmp_mask_layer_img[:,:,2]
 
-        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_OPEN,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
-        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_CLOSE,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
-        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_OPEN,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
-        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_CLOSE,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
-        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_OPEN,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
-        self.smooth_img = cv2.morphologyEx(self.smooth_img,cv2.MORPH_CLOSE,cv2.getStructuringElement(cv2.MORPH_RECT,(55,55)))
-        self.smooth_img = cv2.erode(self.smooth_img,cv2.getStructuringElement(cv2.MORPH_RECT,(30,30)))
-        self.tAddImg('smoothed',self.smooth_img)
+        fil = np.ones([windows_size, windows_size])
+        print('mask shape ',mask.shape)
+        self.total_line_point = cv2.filter2D(mask[:,:,0],-1,fil)
+        print(self.total_line_point.shape)
+        median_num = np.median(self.total_line_point)
+        tmp_red_img = np.zeros_like(self.tmp_mask_layer_img[:,:,2])
+        tmp_red_img[np.where(self.total_line_point>median_num)] = 255
+        self.tmp_mask_layer_img[:,:,2] = tmp_red_img
+
+        # self.smooth_img = cv2.erode(self.smooth_img,cv2.getStructuringElement(cv2.MORPH_RECT,(30,30)))
+        self.tAddImg('smoothed', self.smooth_img)
         self.result_img = cv2.addWeighted(self.result_img, 0.6, self.tmp_mask_layer_img, 0.4, 0)
         self.tAddImg('result', self.result_img)
 
