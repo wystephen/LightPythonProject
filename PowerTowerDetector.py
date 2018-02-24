@@ -2,9 +2,10 @@
 # carete by steve at  2018 / 02 / 24　14:44
 
 import cv2
-import skimage
-from skimage.filters import gabor_kernel
-from skimage import measure
+import skimage_test
+from skimage_test.filters import gabor_kernel
+from skimage_test import measure
+from skimage_test import transform
 
 import numpy as np
 import scipy as sp
@@ -23,7 +24,7 @@ class TowerDetecter:
         self.debug_flag = debug_flag
         # self.src_img = img
         scale = 1.0
-        if img.shape[0] > 1000:
+        if img.shape[0] > 50:
             scale = int(img.shape[0] / 500.0)
 
         # self.src_img = img
@@ -180,11 +181,23 @@ class TowerDetecter:
         result = self.src_img.copy()
 
         # 经验参数
-        minLineLength = 200
-        maxLineGap = 15
-        lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 80, minLineLength, maxLineGap)
-        for x1, y1, x2, y2 in lines[0]:
+        minLineLength = 150
+        maxLineGap = 10
+        # lines = cv2.HoughLinesP(edges, 1, np.pi /360, 100, minLineLength, maxLineGap)
+        # print(lines.shape)
+        lines  = (transform.probabilistic_hough_line(edges,threshold=70,
+                                                     line_length=minLineLength,
+                                                     line_gap=maxLineGap))
+        # if lines:
+        # for index in range(lines.shape[0]):
+        #     x1 = lines[index,0,0]
+        #     y1 = lines[index,0,1]
+        #     x2 = lines[index,0,2]
+        #     y2 = lines[index,0,3]
+        #     cv2.line(result, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        for (x1,y1),(x2,y2) in lines:
             cv2.line(result, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
         self.tAddImg('lines',result)
         self.tAddImg('edge', edges)
 
