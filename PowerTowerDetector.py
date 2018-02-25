@@ -50,17 +50,34 @@ class TowerDetecter:
             cv2.namedWindow(str_name, cv2.WINDOW_GUI_NORMAL)
             cv2.imshow(str_name, img)
 
-    def multiLayerProcess(self, win_size_list=[100, 200, 400]):
+    def multiLayerProcess(self, win_size_list=[200]):
         self.result_imgs = list()
 
         for win_size in win_size_list:
             tmp_res_img = self.original_img.copy()
+            tmp_mask_img = np.zeros(
+                [int(self.original_img.shape[0] / win_size + 1), int(self.original_img.shape[1] / win_size + 1)],
+                dtype=np.uint8)
             for i in range(0, self.original_img.shape[0], win_size):
                 for j in range(0, self.original_img.shape[1], win_size):
                     end_x = min(i + win_size, self.original_img.shape[0])
                     end_y = min(j + win_size, self.original_img.shape[1])
-                    tmp_res_img[i:end_x, j:end_y, :] = \
+                    tmp_res_img[i:end_x, j:end_y, :], is_tower_flag = \
                         self.sub_image_process(self.original_img[i:end_x, j:end_y, :])
+                    if is_tower_flag:
+                        tmp_mask_img[int(i / win_size), int(j / win_size)] = 255
+                        print('istowerflag')
+                ## process tmp mask img
+
+            for i in range(0, self.original_img.shape[0], win_size):
+                for j in range(0, self.original_img.shape[1], win_size):
+                    end_x = min(i + win_size, self.original_img.shape[0])
+                    end_y = min(j + win_size, self.original_img.shape[1])
+                    if tmp_mask_img[int(i / win_size), int(j / win_size)] > 255:
+                        tmp_res_img[i:end_x, j:end_y, :] = \
+                            cv2.rectangle(self.original_img[i:end_x, j:end_y, :], (0, 0),
+                                          (end_x - i-1, end_y-j - 1), (0, 0, 255), 2)
+
             self.tAddImg(str(win_size) + 'tmp_res', tmp_res_img)
             self.result_imgs.append(tmp_res_img)
 
@@ -78,8 +95,6 @@ class TowerDetecter:
         g = self.sub_img[:, :, 1]
         b = self.sub_img[:, :, 2]
 
-
-
         self.sub_hsv_img = cv2.cvtColor(self.sub_img, cv2.COLOR_RGB2HSV)
         h = self.sub_hsv_img[:, :, 0]
         s = self.sub_hsv_img[:, :, 1]
@@ -94,14 +109,14 @@ class TowerDetecter:
         h_count = np.count_nonzero(self.h_canny)
         v_count = np.count_nonzero(self.v_canny)
         # print(h_count, v_count)
-        color_mask  =  h
+        # color_mask = h
 
-        if h_count + v_count > 50 \
-                and h_count < 0.7 * (h_count + v_count) \
-                and v_count < 0.7 * (h_count + v_count):
-            color_mask = np.zeros_like(color_mask)
-        else:
-            color_mask = np.ones_like(color_mask) * 255
+        # if h_count + v_count > 50 \
+        #         and h_count < 0.7 * (h_count + v_count) \
+        #         and v_count < 0.7 * (h_count + v_count):
+        #     color_mask = np.zeros_like(color_mask)
+        # else:
+        #     color_mask = np.ones_like(color_mask) * 255
 
         self.h_line = np.zeros_like(self.h_canny)
         self.s_line = np.zeros_like(self.s_canny)
@@ -110,41 +125,58 @@ class TowerDetecter:
         self.s_line = self.detectAnddraw(self.s_canny)
         self.v_line = self.detectAnddraw(self.v_canny)
 
-
-
         # self.sub_img = cv2.addWeighted(cv2.cvtColor(color_mask, cv2.COLOR_GRAY2RGB)
         #                                , 0.5, self.sub_img, 0.5, 0)
-        self.sub_img[:,:,0] = self.h_canny
-        self.sub_img[:,:,0] = self.h_line
-        self.sub_img[:,:,1] = self.s_canny
-        self.sub_img[:,:,1] = self.s_line
-        self.sub_img[:,:,2] = self.v_canny
-        self.sub_img[:,:,2] = self.v_line
+        # self.sub_img[:,:,0] = self.h_canny
+        # self.sub_img[:,:,0] = self.h_line
+        # self.sub_img[:,:,1] = self.s_canny
+        # self.sub_img[:,:,1] = self.s_line
+        # self.sub_img[:,:,2] = self.v_canny
+        # self.sub_img[:,:,2] = self.v_line
+        self.sub_std_img = np.std(self.sub_img,axis=2)
 
         # self.sub_img[:,:,:1] =  0
-        cv2.rectangle(self.sub_img, (0, 0), (height, width), (0, 0, 223), 2)
+        is_tower_flag = False
+        if (np.count_nonzero(self.h_line) > 40 or \
+                np.count_nonzero(self.s_line) > 40 or \
+                np.count_nonzero(self.v_line) > 40) or \
+            len(np.where(self.sub_std_img<7.0))>100 :
+            # cv2.rectangle(self.sub_img, (0, 0), (height, width), (0, 0, 223), 5)
+            is_tower_flag = True
 
-        return cv2.resize(self.sub_img, (width, height))
+        return cv2.resize(self.sub_img, (width, height)), is_tower_flag
 
-    def detectAnddraw(self,img):
+    def detectAnddraw(self, img):
 
         # 经验参数
         minLineLength = 50
         maxLineGap = 5
         # 直线检测，（电线杆上有直线，自然界直线比较少）
         line_list = (transform.probabilistic_hough_line(img, threshold=30,
-                                                    line_length=minLineLength,
-                                                    line_gap=maxLineGap))
-        lines = np.zeros((img.shape[0],img.shape[1],3),dtype=np.uint8)
-        if(len(line_list)<15):
+                                                        line_length=minLineLength,
+                                                        line_gap=maxLineGap))
+        lines = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+        angle_array = np.zeros(int(180 / 5) + 1)
+        for (x1, y1), (x2, y2) in line_list:
+            a = np.arctan2(y2 - y1, x2 - x1)
+            a = int(abs(a / np.pi * 180.0))
+            angle_array[int(a / 5)] += 1
+        counter = 0
+        for angle in angle_array:
+            if angle > 0:
+                counter += 1
+
+
+        if counter < 4 and len(line_list) < 15:
             for (x1, y1), (x2, y2) in line_list:
                 cv2.line(lines, (x1, y1), (x2, y2), (255, 255, 255), 2)
 
-        return cv2.cvtColor(lines,cv2.COLOR_RGB2GRAY)
+        return cv2.cvtColor(lines, cv2.COLOR_RGB2GRAY)
 
     '''
     process the image
     '''
+
     def preprocess(self):
         # 用hSV 色彩空间表示 图像
         self.hsv_img = cv2.cvtColor(self.src_img,
