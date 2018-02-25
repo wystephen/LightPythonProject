@@ -25,7 +25,8 @@ if __name__ == '__main__':
         im = cv2.imread(t_name)
         td = PowerTowerDetector.TowerDetecter(im, True)
         # td.preprocess()
-        td.multiLayerProcess()
+        # td.multiLayerProcess()
+        td.hsvProcess()
 
         cv2.waitKey()
 

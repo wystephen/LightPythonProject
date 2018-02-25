@@ -66,17 +66,28 @@ class TowerDetecter:
                         self.sub_image_process(self.original_img[i:end_x, j:end_y, :])
                     if is_tower_flag:
                         tmp_mask_img[int(i / win_size), int(j / win_size)] = 255
-                        print('istowerflag')
                 ## process tmp mask img
+            # tmp_mask_img = cv2.erode(tmp_mask_img,cv2.getStructuringElement(
+            #     cv2.MORPH_RECT,
+            #     (3,3)
+            # ))
+            tmp_mask_img = cv2.morphologyEx(
+                tmp_mask_img,
+                cv2.MORPH_CLOSE,
+                cv2.getStructuringElement(
+                    cv2.MORPH_RECT,
+                    (2, 2)
+                ))
 
             for i in range(0, self.original_img.shape[0], win_size):
                 for j in range(0, self.original_img.shape[1], win_size):
                     end_x = min(i + win_size, self.original_img.shape[0])
                     end_y = min(j + win_size, self.original_img.shape[1])
-                    if tmp_mask_img[int(i / win_size), int(j / win_size)] > 255:
-                        tmp_res_img[i:end_x, j:end_y, :] = \
-                            cv2.rectangle(self.original_img[i:end_x, j:end_y, :], (0, 0),
-                                          (end_x - i-1, end_y-j - 1), (0, 0, 255), 2)
+                    if tmp_mask_img[int(i / win_size), int(j / win_size)] > 2:
+                        # print('mask')
+                        tmp_res_img[i:end_x, j:end_y, :] = cv2.rectangle(
+                            self.original_img[i:end_x, j:end_y, :].copy(), (0, 0),
+                            (end_x - i - 1, end_y - j - 1), (0, 0, 255), 5).copy()
 
             self.tAddImg(str(win_size) + 'tmp_res', tmp_res_img)
             self.result_imgs.append(tmp_res_img)
@@ -91,9 +102,9 @@ class TowerDetecter:
         width = img.shape[1]
 
         self.sub_img = cv2.resize(img, (100, 100))
-        r = self.sub_img[:, :, 0]
+        b = self.sub_img[:, :, 0]
         g = self.sub_img[:, :, 1]
-        b = self.sub_img[:, :, 2]
+        r = self.sub_img[:, :, 2]
 
         self.sub_hsv_img = cv2.cvtColor(self.sub_img, cv2.COLOR_RGB2HSV)
         h = self.sub_hsv_img[:, :, 0]
@@ -133,41 +144,62 @@ class TowerDetecter:
         # self.sub_img[:,:,1] = self.s_line
         # self.sub_img[:,:,2] = self.v_canny
         # self.sub_img[:,:,2] = self.v_line
-        self.sub_std_img = np.std(self.sub_img,axis=2)
+        self.sub_std_img = np.std(self.sub_img, axis=2)
+        self.grey_mask_img = np.ones_like(self.sub_std_img, dtype=np.uint8)
+        # grey must exist.
+        self.grey_mask_img[np.where(self.sub_std_img < 1.0)] = 0
+        self.grey_mask_img[np.where(self.sub_std_img > 7.0)] = 0
+
+        self.red_mask_img = np.zeros_like(self.grey_mask_img)
+        self.green_mask_img = np.zeros_like(self.grey_mask_img)
+
+        for i in range(self.sub_img.shape[0]):
+            for j in range(self.sub_img.shape[1]):
+                if r[i, j] > 200 and b[i, j] + g[i, j] < 100:
+                    self.red_mask_img[i, j] = 255
+                if g[i, j] > 200 and b[i, j] + g[i, j] < 100:
+                    self.green_mask_img[i, j] = 255
 
         # self.sub_img[:,:,:1] =  0
         is_tower_flag = False
         if (np.count_nonzero(self.h_line) > 40 or \
-                np.count_nonzero(self.s_line) > 40 or \
-                np.count_nonzero(self.v_line) > 40) or \
-            len(np.where(self.sub_std_img<7.0))>100 :
+            np.count_nonzero(self.s_line) > 40 or \
+            np.count_nonzero(self.v_line) > 40) and \
+                np.count_nonzero(self.grey_mask_img) > 10 and \
+                np.count_nonzero(self.red_mask_img) < 3000 and \
+                np.count_nonzero(self.green_mask_img) < 9900:
             # cv2.rectangle(self.sub_img, (0, 0), (height, width), (0, 0, 223), 5)
             is_tower_flag = True
 
         return cv2.resize(self.sub_img, (width, height)), is_tower_flag
 
-    def detectAnddraw(self, img):
+    def detectAnddraw(self, img,
+                      minLineLength=50,
+                      maxLineGap=5,
+                      threshold=30,
+                      other_condition=True):
 
-        # 经验参数
-        minLineLength = 50
-        maxLineGap = 5
         # 直线检测，（电线杆上有直线，自然界直线比较少）
-        line_list = (transform.probabilistic_hough_line(img, threshold=30,
+        line_list = (transform.probabilistic_hough_line(img, threshold=threshold,
                                                         line_length=minLineLength,
                                                         line_gap=maxLineGap))
         lines = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
-        angle_array = np.zeros(int(180 / 5) + 1)
-        for (x1, y1), (x2, y2) in line_list:
-            a = np.arctan2(y2 - y1, x2 - x1)
-            a = int(abs(a / np.pi * 180.0))
-            angle_array[int(a / 5)] += 1
-        counter = 0
-        for angle in angle_array:
-            if angle > 0:
-                counter += 1
 
+        if other_condition:
+            angle_array = np.zeros(int(180 / 5) + 1)
+            for (x1, y1), (x2, y2) in line_list:
+                a = np.arctan2(y2 - y1, x2 - x1)
+                a = int(abs(a / np.pi * 180.0))
+                angle_array[int(a / 5)] += 1
+            counter = 0
+            for angle in angle_array:
+                if angle > 0:
+                    counter += 1
 
-        if counter < 4 and len(line_list) < 15:
+            if counter < 4 and len(line_list) < 15:
+                for (x1, y1), (x2, y2) in line_list:
+                    cv2.line(lines, (x1, y1), (x2, y2), (255, 255, 255), 2)
+        else:
             for (x1, y1), (x2, y2) in line_list:
                 cv2.line(lines, (x1, y1), (x2, y2), (255, 255, 255), 2)
 
@@ -239,6 +271,24 @@ class TowerDetecter:
                                           cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15)))
 
         self.tAddImg('closed', self.morph_img)
+
+    def hsvProcess(self):
+        self.hsv_img = cv2.cvtColor(self.src_img, cv2.COLOR_RGB2HSV)
+
+        h = self.hsv_img[:, :, 0]
+        s = self.hsv_img[:, :, 1]
+        v = self.hsv_img[:, :, 2]
+
+        self.h_canny = cv2.Canny(h, 100, 200)
+        self.s_canny = cv2.Canny(s, 100, 200)
+        self.v_canny = cv2.Canny(v, 100, 200)
+        self.h_line_img = self.detectAnddraw(self.h_canny, 100, 10, 30, False)
+        self.s_line_img = self.detectAnddraw(self.s_canny, 100, 10, 30, False)
+        self.v_line_img = self.detectAnddraw(self.v_canny, 100, 10, 30, False)
+
+        self.tAddImg('h line', self.h_line_img)
+        self.tAddImg('s line', self.s_line_img)
+        self.tAddImg('vline ', self.v_line_img)
 
     '''
     process the image
