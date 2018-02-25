@@ -30,7 +30,7 @@ if __name__ == '__main__':
 
         cv2.waitKey()
 
-        # cv2.imwrite('res_image\\'+name, td.result_img)
+        cv2.imwrite('res_image\\'+name, td.v_line_img)
 
         detector_list.append(td)
         # break

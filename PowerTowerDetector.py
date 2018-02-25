@@ -32,7 +32,7 @@ class TowerDetecter:
 
         # self.src_img = img
         self.src_img = cv2.resize(img,
-                                  (int(img.shape[0] / scale), int(img.shape[1] / scale)),
+                                  (int(img.shape[1] / scale), int(img.shape[0] / scale)),
                                   interpolation=cv2.INTER_CUBIC)
         self.img_name_list = list()
         self.img_list = list()
@@ -205,6 +205,24 @@ class TowerDetecter:
 
         return cv2.cvtColor(lines, cv2.COLOR_RGB2GRAY)
 
+    def detectTowerLine(self, src_img,
+                        img,
+                        minLineLength=50,
+                        maxLineGap=5,
+                        threshold=30,
+                        other_condition=True):
+
+        # 直线检测，（电线杆上有直线，自然界直线比较少）
+        line_list = (transform.probabilistic_hough_line(img, threshold=threshold,
+                                                        line_length=minLineLength,
+                                                        line_gap=maxLineGap))
+        lines = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+
+        for (x1, y1), (x2, y2) in line_list:
+            cv2.line(lines, (x1, y1), (x2, y2), (255, 255, 255), 2)
+
+        return cv2.cvtColor(lines, cv2.COLOR_RGB2GRAY), line_list
+
     '''
     process the image
     '''
@@ -273,7 +291,10 @@ class TowerDetecter:
         self.tAddImg('closed', self.morph_img)
 
     def hsvProcess(self):
-        self.hsv_img = cv2.cvtColor(self.src_img, cv2.COLOR_RGB2HSV)
+        self.hsv_img = cv2.cvtColor(self.src_img, cv2.COLOR_BGR2HSV)
+        b = self.src_img[:, :, 0]
+        g = self.src_img[:, :, 1]
+        r = self.src_img[:, :, 2]
 
         h = self.hsv_img[:, :, 0]
         s = self.hsv_img[:, :, 1]
@@ -282,13 +303,38 @@ class TowerDetecter:
         self.h_canny = cv2.Canny(h, 100, 200)
         self.s_canny = cv2.Canny(s, 100, 200)
         self.v_canny = cv2.Canny(v, 100, 200)
-        self.h_line_img = self.detectAnddraw(self.h_canny, 100, 10, 30, False)
-        self.s_line_img = self.detectAnddraw(self.s_canny, 100, 10, 30, False)
-        self.v_line_img = self.detectAnddraw(self.v_canny, 100, 10, 30, False)
+        # self.h_line_img = self.detectTowerLine(self.src_img, self.h_canny, 100, 10, 30, False)
+        # self.s_line_img = self.detectTowerLine(self.src_img, self.s_canny, 100, 10, 30, False)
+        self.v_line_img, v_line_list = self.detectTowerLine(self.src_img,
+                                                            self.v_canny,
+                                                            150, 10, 30, False)
 
-        self.tAddImg('h line', self.h_line_img)
-        self.tAddImg('s line', self.s_line_img)
+        # self.v_line_img  = cv2.morphologyEx(
+        #     self.v_line_img,
+        #     cv2.MORPH_OPEN,
+        #     cv2.getStructuringElement(
+        #         cv2.MORPH_CROSS,
+        #         (5,5)
+        #     )
+        # )
+        # for i in range(1, self.v_line_img.shape[0] - 1):
+        #     for j in range(1, self.v_line_img.shape[1] - 1):
+        #         if g[i, j] > r[i, j] + b[i, j] and \
+        #                 np.sum(g[i - 1:i + 1, j - 1:j + 1]) > np.sum(r[i - 1:i + 1, j - 1:j + 1] +
+        #                                                              b[i - 1:i + 1, j - 1:j + 1]):
+        #             self.v_line_img[i, j] = 0
+        ret, binary = cv2.threshold(self.v_line_img, 100, 255, cv2.THRESH_BINARY)
+        contours, hirearchy = cv2.findContours(binary, cv2.RETR_TREE,
+                                               cv2.CHAIN_APPROX_SIMPLE)
+        self.contour_img = cv2.drawContours(self.src_img.copy(),
+                                            contours,
+                                            -1,
+                                            (0, 0, 255), 3)
+
+        # self.tAddImg('h line', self.h_line_img)
+        # self.tAddImg('s line', self.s_line_img)
         self.tAddImg('vline ', self.v_line_img)
+        self.tAddImg('contour', self.contour_img)
 
     '''
     process the image
