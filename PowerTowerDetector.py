@@ -25,8 +25,9 @@ class TowerDetecter:
         self.debug_flag = debug_flag
         # self.src_img = img
         scale = 1.0
-        if img.shape[0] > 50:
-            scale = int(img.shape[0] / 1000.0)
+        scale_to_width = 600
+        if img.shape[0] > scale_to_width:
+            scale = int(img.shape[0] / scale_to_width)
 
         # self.src_img = img
         self.src_img = cv2.resize(img,
@@ -48,10 +49,79 @@ class TowerDetecter:
             cv2.namedWindow(str_name, cv2.WINDOW_GUI_NORMAL)
             cv2.imshow(str_name, img)
 
+
+
     '''
     process the image
     '''
     def preprocess(self):
+        # 用hSV 色彩空间表示 图像
+        self.hsv_img = cv2.cvtColor(self.src_img,
+                                    cv2.COLOR_RGB2HSV)
+        self.tAddImg('hsvimg', self.hsv_img)
+        # hsv各个分量
+        self.h = self.hsv_img[:, :, 0]
+        self.s = self.hsv_img[:, :, 1]
+        self.v = self.hsv_img[:, :, 2]
+
+        # rgb 各个分量
+        self.r = self.src_img[:, :, 0]
+        self.g = self.src_img[:, :, 1]
+        self.b = self.src_img[:, :, 2]
+
+        # 每个像素三个通道的值的标准差（灰色r=g=b），所以越小越接近灰色
+        self.std_img = np.std(self.src_img.copy().astype(dtype=np.float),
+                              axis=2)
+
+        self.bi_grey_img = np.ones_like(self.std_img, dtype=np.uint8)
+        self.bi_grey_img[np.where(self.std_img < 1)] = 0 # 排除白色（0，0，0）
+        self.bi_grey_img[np.where(self.std_img > 7)] = 0 # 排除非灰色系
+        self.bi_grey_img *= 255
+        self.tAddImg('bi img', self.bi_grey_img)
+
+        self.grey_img = cv2.inRange(self.hsv_img, (0.0, 0.0, 76),
+                                    (180, 33, 240))
+        self.tAddImg('grey', self.grey_img)
+
+        self.both_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)#根据颜色判断可能是电线塔的像素
+        self.wrong_color_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)#根据颜色判断不可能是电线塔的像素
+
+        for i in range(self.both_img.shape[0]):
+            for j in range(self.both_img.shape[1]):
+                if self.bi_grey_img[i, j] > 100 and self.grey_img[i, j] > 100 and \
+                        (self.r[i, j] + self.g[i, j]) < 0.9 * (self.r[i, j] + self.g[i, j] + self.b[i, j]) and \
+                        self.g[i, j] < 0.95 * (self.r[i, j] + self.g[i, j] + self.b[i, j]):
+                    # 条件1： 在hsv色彩空间和 rgb色彩空间都表现为灰色
+                    # 条件2： 红色和绿色（混合为黄色）之和小于0。9。（排除土地）
+                    # 条件3： 绿色 占比小于 0。95。（排除绿色植物）
+                    self.both_img[i, j] = 255
+                elif self.g[i, j] > 0.99 * (self.r[i, j] + self.g[i, j] + self.b[i, j]):
+                    # 纯绿色不可能是电线塔
+                    self.wrong_color_img[i, j] = 255
+                elif self.r[i, j] + self.g[i, j] > 0.95 * (self.r[i, j] + self.g[i, j] + self.b[i, j]) and \
+                        abs(self.r[i, j] - self.g[i, j]) < 0.05 * ((self.r[i, j] + self.g[i, j] + self.b[i, j])):
+                    # 黄色，不可能是电线塔
+                    self.wrong_color_img[i, j] = 255
+                elif self.r[i, j] > 0.9 * ((self.r[i, j] + self.g[i, j] + self.b[i, j])):
+                    # 红色， 不可能是电线塔。
+                    self.wrong_color_img[i, j] = 255
+
+        self.tAddImg('both', self.both_img)
+
+        # 二值化并形态学闭运算。
+        ret, self.threshold_img = cv2.threshold(self.both_img, 100, 255, cv2.THRESH_BINARY)
+        self.tAddImg('threshold', self.threshold_img)
+
+        self.morph_img = cv2.morphologyEx(self.threshold_img, cv2.MORPH_CLOSE,
+                                          cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
+
+        self.tAddImg('closed', self.morph_img)
+
+
+    '''
+    process the image
+    '''
+    def preprocess2(self):
         # 用hSV 色彩空间表示 图像
         self.hsv_img = cv2.cvtColor(self.src_img,
                                     cv2.COLOR_RGB2HSV)
