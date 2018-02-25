@@ -24,11 +24,12 @@ if __name__ == '__main__':
         t_name = 'image\\' + name
         im = cv2.imread(t_name)
         td = PowerTowerDetector.TowerDetecter(im, True)
-        td.preprocess()
+        # td.preprocess()
+        td.multiLayerProcess()
 
         cv2.waitKey()
 
-        cv2.imwrite('res_image\\'+name, td.result_img)
+        # cv2.imwrite('res_image\\'+name, td.result_img)
 
         detector_list.append(td)
         # break

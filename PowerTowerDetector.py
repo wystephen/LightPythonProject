@@ -23,6 +23,7 @@ class TowerDetecter:
         :param debug_flag: if true, the image will display through cv.imshow()
         '''
         self.debug_flag = debug_flag
+        self.original_img = img.copy()
         # self.src_img = img
         scale = 1.0
         scale_to_width = 600
@@ -49,11 +50,81 @@ class TowerDetecter:
             cv2.namedWindow(str_name, cv2.WINDOW_GUI_NORMAL)
             cv2.imshow(str_name, img)
 
+    def multiLayerProcess(self, win_size_list=[100, 200, 400]):
+        self.result_imgs = list()
 
+        for win_size in win_size_list:
+            tmp_res_img = self.original_img.copy()
+            for i in range(0, self.original_img.shape[0], win_size):
+                for j in range(0, self.original_img.shape[1], win_size):
+                    end_x = min(i + win_size, self.original_img.shape[0])
+                    end_y = min(j + win_size, self.original_img.shape[1])
+                    tmp_res_img[i:end_x, j:end_y, :] = \
+                        self.sub_image_process(self.original_img[i:end_x, j:end_y, :])
+            self.tAddImg(str(win_size) + 'tmp_res', tmp_res_img)
+            self.result_imgs.append(tmp_res_img)
+
+    def sub_image_process(self, img):
+        '''
+        process sub img
+        :param img:
+        :return:
+        '''
+        height = img.shape[0]
+        width = img.shape[1]
+
+        self.sub_img = cv2.resize(img, (100, 100))
+        r = self.sub_img[:, :, 0]
+        g = self.sub_img[:, :, 1]
+        b = self.sub_img[:, :, 2]
+
+        self.sub_hsv_img = cv2.cvtColor(self.sub_img, cv2.COLOR_RGB2HSV)
+        h = self.sub_hsv_img[:, :, 0]
+        s = self.sub_hsv_img[:, :, 1]
+        v = self.sub_hsv_img[:, :, 2]
+
+        # if np.sum(g) > 1.3 * np.sum(b) and np.sum(g) > 1.3 * np.sum(r):
+        #     # color_mask = np.ones_like(g) * 200
+        color_mask = cv2.inRange(self.sub_hsv_img, (25, 43, 46),
+                                 (99, 255, 255))
+        for i, j in enumerate(np.where(color_mask > 0)):
+            self.sub_img[i, j, :] = 1
+        #     # color_mask = np.ones_like(color_mask)*255
+        # else:
+        color_mask = h
+
+        self.h_canny = cv2.Canny(h, 100, 200)
+        self.s_canny = cv2.Canny(s, 100, 200)
+        self.v_canny = cv2.Canny(v, 100, 200)
+
+        self.s_canny *= 0
+
+        h_count = np.count_nonzero(self.h_canny)
+        v_count = np.count_nonzero(self.v_canny)
+        print(h_count, v_count)
+
+        if h_count + v_count > 50 \
+                and h_count < 0.7 * (h_count + v_count) \
+                and v_count < 0.7 * (h_count + v_count):
+            color_mask = np.zeros_like(color_mask)
+        else:
+            color_mask = np.ones_like(color_mask) * 255
+
+        self.sub_img = cv2.addWeighted(cv2.cvtColor(color_mask, cv2.COLOR_GRAY2RGB)
+                                       , 0.5, self.sub_img, 0.5, 0)
+        # self.sub_img[:,:,0] = self.h_canny
+        # self.sub_img[:,:,1] = self.s_canny
+        # self.sub_img[:,:,2] = self.v_canny
+
+        # self.sub_img[:,:,:1] =  0
+        cv2.rectangle(self.sub_img, (0, 0), (height, width), (0, 0, 223), 2)
+
+        return cv2.resize(self.sub_img, (width, height))
 
     '''
     process the image
     '''
+
     def preprocess(self):
         # 用hSV 色彩空间表示 图像
         self.hsv_img = cv2.cvtColor(self.src_img,
@@ -74,8 +145,8 @@ class TowerDetecter:
                               axis=2)
 
         self.bi_grey_img = np.ones_like(self.std_img, dtype=np.uint8)
-        self.bi_grey_img[np.where(self.std_img < 1)] = 0 # 排除白色（0，0，0）
-        self.bi_grey_img[np.where(self.std_img > 7)] = 0 # 排除非灰色系
+        self.bi_grey_img[np.where(self.std_img < 1)] = 0  # 排除白色（0，0，0）
+        self.bi_grey_img[np.where(self.std_img > 7)] = 0  # 排除非灰色系
         self.bi_grey_img *= 255
         self.tAddImg('bi img', self.bi_grey_img)
 
@@ -83,8 +154,8 @@ class TowerDetecter:
                                     (180, 33, 240))
         self.tAddImg('grey', self.grey_img)
 
-        self.both_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)#根据颜色判断可能是电线塔的像素
-        self.wrong_color_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)#根据颜色判断不可能是电线塔的像素
+        self.both_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)  # 根据颜色判断可能是电线塔的像素
+        self.wrong_color_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)  # 根据颜色判断不可能是电线塔的像素
 
         for i in range(self.both_img.shape[0]):
             for j in range(self.both_img.shape[1]):
@@ -113,14 +184,14 @@ class TowerDetecter:
         self.tAddImg('threshold', self.threshold_img)
 
         self.morph_img = cv2.morphologyEx(self.threshold_img, cv2.MORPH_CLOSE,
-                                          cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
+                                          cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15)))
 
         self.tAddImg('closed', self.morph_img)
-
 
     '''
     process the image
     '''
+
     def preprocess2(self):
         # 用hSV 色彩空间表示 图像
         self.hsv_img = cv2.cvtColor(self.src_img,
@@ -141,8 +212,8 @@ class TowerDetecter:
                               axis=2)
 
         self.bi_grey_img = np.ones_like(self.std_img, dtype=np.uint8)
-        self.bi_grey_img[np.where(self.std_img < 1)] = 0 # 排除白色（0，0，0）
-        self.bi_grey_img[np.where(self.std_img > 7)] = 0 # 排除非灰色系
+        self.bi_grey_img[np.where(self.std_img < 1)] = 0  # 排除白色（0，0，0）
+        self.bi_grey_img[np.where(self.std_img > 7)] = 0  # 排除非灰色系
         self.bi_grey_img *= 255
         self.tAddImg('bi img', self.bi_grey_img)
 
@@ -150,8 +221,8 @@ class TowerDetecter:
                                     (180, 33, 240))
         self.tAddImg('grey', self.grey_img)
 
-        self.both_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)#根据颜色判断可能是电线塔的像素
-        self.wrong_color_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)#根据颜色判断不可能是电线塔的像素
+        self.both_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)  # 根据颜色判断可能是电线塔的像素
+        self.wrong_color_img = np.zeros_like(self.bi_grey_img, dtype=np.uint8)  # 根据颜色判断不可能是电线塔的像素
 
         for i in range(self.both_img.shape[0]):
             for j in range(self.both_img.shape[1]):
@@ -226,13 +297,13 @@ class TowerDetecter:
 
         # 根据区域内（大小由windows——size确定）前景的像素的数目确定是否标记为电线塔。
         fil = np.ones([windows_size, windows_size])
-        print('mask shape ',mask.shape)
-        self.total_line_point = cv2.filter2D(mask[:,:,0],-1,fil)
+        print('mask shape ', mask.shape)
+        self.total_line_point = cv2.filter2D(mask[:, :, 0], -1, fil)
         print(self.total_line_point.shape)
         median_num = np.mean(self.total_line_point)
-        tmp_red_img = np.zeros_like(self.tmp_mask_layer_img[:,:,2])
-        tmp_red_img[np.where(self.total_line_point>median_num)] = 255
-        self.tmp_mask_layer_img[:,:,2] = tmp_red_img
+        tmp_red_img = np.zeros_like(self.tmp_mask_layer_img[:, :, 2])
+        tmp_red_img[np.where(self.total_line_point > median_num)] = 255
+        self.tmp_mask_layer_img[:, :, 2] = tmp_red_img
 
         # self.smooth_img = cv2.erode(self.smooth_img,cv2.getStructuringElement(cv2.MORPH_RECT,(30,30)))
         # self.tAddImg('smoothed', self.smooth_img)
