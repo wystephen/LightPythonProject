@@ -518,7 +518,24 @@ class TowerDetecter:
                     # 红色， 不可能是电线塔。
                     self.wrong_color_img[i, j] = 255
 
+        # self.both_img = cv2.morphologyEx(
+        #     self.both_img,
+        #     cv2.MO
+        # )
+        a, contour, he = cv2.findContours(self.both_img,
+                                          cv2.RETR_TREE,
+                                          cv2.CHAIN_APPROX_SIMPLE)
+        self.contour_img = self.src_img
+        for cnt in contour:
+            approx = cv2.approxPolyDP(cnt,
+                                      0.1 * cv2.arcLength(cnt, True),
+                                      True)
+            if len(approx) == 3:
+                cv2.drawContours(self.contour_img,
+                                 cnt, 0, (0, 0, 255), 3)
+
         self.tAddImg('both', self.both_img)
+        self.tAddImg('contour', self.contour_img)
 
     def pltShow(self, index=0):
         plt.figure(index)
