@@ -26,7 +26,7 @@ class TowerDetecter:
         self.original_img = img.copy()
         # self.src_img = img
         scale = 1.0
-        scale_to_width = 600
+        scale_to_width = 1000
         if img.shape[0] > scale_to_width:
             scale = int(img.shape[0] / scale_to_width)
 
