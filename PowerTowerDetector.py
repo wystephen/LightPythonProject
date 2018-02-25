@@ -324,12 +324,19 @@ class TowerDetecter:
         #                                                              b[i - 1:i + 1, j - 1:j + 1]):
         #             self.v_line_img[i, j] = 0
         ret, binary = cv2.threshold(self.v_line_img, 100, 255, cv2.THRESH_BINARY)
-        contours, hirearchy = cv2.findContours(binary, cv2.RETR_TREE,
-                                               cv2.CHAIN_APPROX_SIMPLE)
+        im, contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE,
+                                                   cv2.CHAIN_APPROX_SIMPLE)
         self.contour_img = cv2.drawContours(self.src_img.copy(),
                                             contours,
                                             -1,
                                             (0, 0, 255), 3)
+        for cnt in contours:
+            if len(cnt) > 5:
+                approx = cv2.approxPolyDP(cnt, 0.1 * cv2.arcLength(cnt, True), True)
+                if len(approx) == 3:
+                    cv2.drawContours(self.contour_img, [cnt], 0, (0, 255, 0), 2)
+
+                # cv2.ellipse(self.contour_img,ellipsis,(0,255,0),2)
 
         # self.tAddImg('h line', self.h_line_img)
         # self.tAddImg('s line', self.s_line_img)
