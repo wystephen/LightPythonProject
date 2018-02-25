@@ -466,6 +466,21 @@ class TowerDetecter:
         self.result_img = cv2.addWeighted(self.result_img, 0.6, self.tmp_mask_layer_img, 0.4, 0)
         self.tAddImg('result', self.result_img)
 
+    def contour_process(self):
+        self.std_img = np.std(self.src_img.copy().astype(dtype=np.float),
+                              axis=2)
+        print(self.std_img.shape)
+        self.std_mask_img = np.ones_like(self.std_img, dtype=np.uint8)
+        print(self.std_mask_img.shape)
+        self.std_mask_img = self.std_mask_img * 255
+        self.std_mask_img[np.where(self.std_img < 0.1)] = 0
+        self.std_mask_img[np.where(self.std_img > 7)] = 0
+        self.std_mask_img = cv2.threshold(self.std_mask_img,
+                                          100, 255, cv2.THRESH_BINARY)
+        print(self.std_mask_img)
+
+        self.tAddImg('std mask', self.std_mask_img)
+
     def pltShow(self, index=0):
         plt.figure(index)
         for i in range(len(self.img_list)):
