@@ -518,9 +518,9 @@ class TowerDetecter:
                     # 红色， 不可能是电线塔。
                     self.wrong_color_img[i, j] = 255
 
-        # self.both_img = cv2.morphologyEx(
+        # self.both_img = cv2.dilate(
         #     self.both_img,
-        #     cv2.MO
+        #     cv2.
         # )
         a, contour, he = cv2.findContours(self.both_img,
                                           cv2.RETR_TREE,
@@ -536,6 +536,18 @@ class TowerDetecter:
 
         self.tAddImg('both', self.both_img)
         self.tAddImg('contour', self.contour_img)
+
+
+    def keyPointProcess(self):
+        orb = cv2.ORB_create(5000)
+
+        kp,des = orb.detectAndCompute(self.src_img,None)
+
+        self.key_img = self.src_img.copy()
+        cv2.drawKeypoints(self.src_img,kp,self.key_img)
+
+        self.tAddImg('key',self.key_img)
+
 
     def pltShow(self, index=0):
         plt.figure(index)

@@ -26,7 +26,8 @@ if __name__ == '__main__':
         td = PowerTowerDetector.TowerDetecter(im, True)
         # td.preprocess()
         # td.multiLayerProcess()
-        td.contour_process()
+        # td.contour_process()
+        td.keyPointProcess()
         # td.hsvProcess()
 
         cv2.waitKey()
