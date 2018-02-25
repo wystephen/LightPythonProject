@@ -78,20 +78,12 @@ class TowerDetecter:
         g = self.sub_img[:, :, 1]
         b = self.sub_img[:, :, 2]
 
+
+
         self.sub_hsv_img = cv2.cvtColor(self.sub_img, cv2.COLOR_RGB2HSV)
         h = self.sub_hsv_img[:, :, 0]
         s = self.sub_hsv_img[:, :, 1]
         v = self.sub_hsv_img[:, :, 2]
-
-        # if np.sum(g) > 1.3 * np.sum(b) and np.sum(g) > 1.3 * np.sum(r):
-        #     # color_mask = np.ones_like(g) * 200
-        color_mask = cv2.inRange(self.sub_hsv_img, (25, 43, 46),
-                                 (99, 255, 255))
-        for i, j in enumerate(np.where(color_mask > 0)):
-            self.sub_img[i, j, :] = 1
-        #     # color_mask = np.ones_like(color_mask)*255
-        # else:
-        color_mask = h
 
         self.h_canny = cv2.Canny(h, 100, 200)
         self.s_canny = cv2.Canny(s, 100, 200)
@@ -101,7 +93,8 @@ class TowerDetecter:
 
         h_count = np.count_nonzero(self.h_canny)
         v_count = np.count_nonzero(self.v_canny)
-        print(h_count, v_count)
+        # print(h_count, v_count)
+        color_mask  =  h
 
         if h_count + v_count > 50 \
                 and h_count < 0.7 * (h_count + v_count) \
@@ -110,21 +103,48 @@ class TowerDetecter:
         else:
             color_mask = np.ones_like(color_mask) * 255
 
-        self.sub_img = cv2.addWeighted(cv2.cvtColor(color_mask, cv2.COLOR_GRAY2RGB)
-                                       , 0.5, self.sub_img, 0.5, 0)
-        # self.sub_img[:,:,0] = self.h_canny
-        # self.sub_img[:,:,1] = self.s_canny
-        # self.sub_img[:,:,2] = self.v_canny
+        self.h_line = np.zeros_like(self.h_canny)
+        self.s_line = np.zeros_like(self.s_canny)
+        self.v_line = np.zeros_like(self.v_canny)
+        self.h_line = self.detectAnddraw(self.h_canny)
+        self.s_line = self.detectAnddraw(self.s_canny)
+        self.v_line = self.detectAnddraw(self.v_canny)
+
+
+
+        # self.sub_img = cv2.addWeighted(cv2.cvtColor(color_mask, cv2.COLOR_GRAY2RGB)
+        #                                , 0.5, self.sub_img, 0.5, 0)
+        self.sub_img[:,:,0] = self.h_canny
+        self.sub_img[:,:,0] = self.h_line
+        self.sub_img[:,:,1] = self.s_canny
+        self.sub_img[:,:,1] = self.s_line
+        self.sub_img[:,:,2] = self.v_canny
+        self.sub_img[:,:,2] = self.v_line
 
         # self.sub_img[:,:,:1] =  0
         cv2.rectangle(self.sub_img, (0, 0), (height, width), (0, 0, 223), 2)
 
         return cv2.resize(self.sub_img, (width, height))
 
+    def detectAnddraw(self,img):
+
+        # 经验参数
+        minLineLength = 50
+        maxLineGap = 5
+        # 直线检测，（电线杆上有直线，自然界直线比较少）
+        line_list = (transform.probabilistic_hough_line(img, threshold=30,
+                                                    line_length=minLineLength,
+                                                    line_gap=maxLineGap))
+        lines = np.zeros((img.shape[0],img.shape[1],3),dtype=np.uint8)
+        if(len(line_list)<15):
+            for (x1, y1), (x2, y2) in line_list:
+                cv2.line(lines, (x1, y1), (x2, y2), (255, 255, 255), 2)
+
+        return cv2.cvtColor(lines,cv2.COLOR_RGB2GRAY)
+
     '''
     process the image
     '''
-
     def preprocess(self):
         # 用hSV 色彩空间表示 图像
         self.hsv_img = cv2.cvtColor(self.src_img,
