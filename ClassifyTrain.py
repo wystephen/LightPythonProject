@@ -18,17 +18,19 @@ if __name__ == '__main__':
 
     print(x.shape, y.shape)
 
-    print(len(np.where(y > 0.5)))
+    print(len(np.where(y > 0.5)[0]))
+    weight = np.ones_like(y)
+    weight[np.where(y < 0.5)] = 5.0
 
     clf = svm.SVC(kernel='rbf')
 
-    clf.fit(x.copy(), y.copy())
+    clf.fit(x.copy(), y.copy(), sample_weight=weight)
 
     pre_y = clf.predict(x.copy())
 
     # precision, recall, thresholds = precision_recall_curve(y,pre_y)
     # fpr,tpr,thresholds = roc_curve(y,pre_y)
-    print(accuracy_score(y.copy(), pre_y))
+    print(accuracy_score(y.copy(), pre_y, sample_weight=weight))
 
     print('error num:', np.sum(np.abs(y - pre_y)))
     # plt.figure()

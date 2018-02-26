@@ -59,6 +59,7 @@ class TowerDetecter:
                              win_size_list=[200],
                              label_img = None):
         self.feature_list = list()
+        tmp_src_img = self.original_img.copy()
         for win_size in win_size_list:
             tmp_res_img = self.original_img.copy()
             tmp_mask_img = np.zeros(
@@ -68,7 +69,7 @@ class TowerDetecter:
                 for j in range(0, self.original_img.shape[1], win_size):
                     end_x = min(i + win_size, self.original_img.shape[0])
                     end_y = min(j + win_size, self.original_img.shape[1])
-                    feature = self.feature_extract(self.original_img[i:end_x, j:end_y])
+                    feature = self.feature_extract(tmp_src_img[i:end_x, j:end_y])
                     self.feature_list.append(feature)
                     # print(feature)
                     y = clf_model.predict(feature.reshape([1, -1]))
@@ -79,16 +80,16 @@ class TowerDetecter:
                                                           (0, 0, 255),
                                                           thickness=10)
 
-                    if label_img is None:
-                        dalfjdsalkfjlkasdlkfjoi=1
-                    else:
-                        if float(np.count_nonzero(label_img[i:end_x, j:end_y])) > 0.7 * (
-                                float(end_x - i) * float(end_y - j)):
-                            self.original_img = cv2.rectangle(self.original_img,
-                                                              (j, i),
-                                                              (end_y, end_x),
-                                                              (0, 255, 0),
-                                                              thickness=5)
+                    # if label_img is None:
+                    #     dalfjdsalkfjlkasdlkfjoi=1
+                    # else:
+                    #     if float(np.count_nonzero(label_img[i:end_x, j:end_y])) > 0.7 * (
+                    #             float(end_x - i) * float(end_y - j)):
+                    #         self.original_img = cv2.rectangle(self.original_img,
+                    #                                           (j, i),
+                    #                                           (end_y, end_x),
+                    #                                           (0, 255, 0),
+                    #                                           thickness=5)
 
         self.tAddImg('marked', self.original_img)
 
@@ -594,6 +595,15 @@ class TowerDetecter:
                     feature = self.feature_extract(
                         self.original_img[i:end_x, j:end_y]
                     )
+                    all_f = np.ones([10,feature.shape[0]])
+                    for k in range(all_f.shape[0]):
+                        all_f[k,:] = self.feature_extract(
+                            self.original_img[i:end_x, j:end_y]
+                        )
+                    from scipy.spatial.distance import pdist
+                    max_dis = np.max(pdist(all_f))
+                    if max_dis > 0.1:
+                        print('max dis:', max_dis)
 
                     feature_list.append(feature)
                     if label_img is None:
@@ -639,11 +649,12 @@ class TowerDetecter:
         # hd = Hog_descriptor(v ,cell_size=10,bin_size=10)
         # hog_feature_vec, hog_img = hd.extract()
         h_hog_vec = self.hog(h)
-        h_hog_vec = h_hog_vec / 20000.0  # h_hog_vec.max()
+        h_hog_vec = np.log(1+h_hog_vec)#/500000 #/ 200000.0  # h_hog_vec.max()
         s_hog_vec = self.hog(s)
-        s_hog_vec = s_hog_vec / 20000.0  # s_hog_vec.max()
+        s_hog_vec = np.log(1+s_hog_vec)#/500000 #/ 200000.0  # s_hog_vec.max()
         v_hog_vec = self.hog(v)
-        v_hog_vec = v_hog_vec / 20000.0  # v_hog_vec.max()
+        v_hog_vec = np.log(1+v_hog_vec)#/500000 #/ 200000.0  # v_hog_vec.max()
+        # print(v_hog_vec.shape)
 
         color_his_r = cv2.calcHist(cv2.cvtColor(local_img.copy(),
                                                 cv2.COLOR_HSV2RGB),

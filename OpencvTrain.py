@@ -31,7 +31,7 @@ if __name__ == '__main__':
                                + str(ti) + '.png')
         td = PowerTowerDetector.TowerDetecter(im, False)
 
-        feature_list, label_list = td.dataset_builder(win_size_list=[200],
+        feature_list, label_list = td.dataset_builder(win_size_list=[300,500,1000],
                                                       label_img=label_img.copy())
         num_counter += len(feature_list)
         print(len(total_feature_list))
@@ -52,6 +52,8 @@ if __name__ == '__main__':
 
     np.savetxt('data_x.csv', data_x, delimiter=',')
     np.savetxt('data_y.csv', data_y, delimiter=',')
+
+    print(np.max(data_x[:, :60]), np.min(data_x[:, :60]))
 
     # clf = svm.SVC(kernel='rbf')
     # clf.fit(data_x, data_y.copy())
