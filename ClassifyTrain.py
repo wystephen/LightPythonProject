@@ -6,6 +6,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 
 from sklearn import svm
+from sklearn.ensemble import GradientBoostingClassifier
 
 # from sklearn import
 
@@ -20,9 +21,12 @@ if __name__ == '__main__':
 
     print(len(np.where(y > 0.5)[0]))
     weight = np.ones_like(y)
-    weight[np.where(y < 0.5)] = 2.0
+    weight[np.where(y < 0.5)] = 1.0
+    weight[np.where(y> 0.5)] = 1.0
 
-    clf = svm.SVC(kernel='rbf')
+    # clf = svm.NuSVC(kernel='rbf')
+    clf = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0,
+                                     max_depth=3,random_state=0)
 
     clf.fit(x.copy(), y.copy(), sample_weight=weight)
 

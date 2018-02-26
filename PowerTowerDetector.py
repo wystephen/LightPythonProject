@@ -596,13 +596,6 @@ class TowerDetecter:
                     feature = self.feature_extract(
                         tmp_src_img[i:end_x,j:end_y]
                     )
-                    #     all_f[k, :] = self.feature_extract(
-                    #         self.original_img[i:end_x, j:end_y]
-                    #     )
-                    # from scipy.spatial.distance import pdist
-                    # max_dis = np.max(pdist(all_f))
-                    # if max_dis > 0.1:
-                    #     print('max dis:', max_dis)
 
                     feature_list.append(feature)
                     if label_img is None:
@@ -649,28 +642,53 @@ class TowerDetecter:
         # hog_feature_vec, hog_img = hd.extract()
         h_hog_vec = self.hog(h)
         h_hog_vec = np.log(1 + h_hog_vec)  # /500000 #/ 200000.0  # h_hog_vec.max()
+        # h_hog_vec = h_hog_vec /500000 #/ 200000.0  # h_hog_vec.max()
         s_hog_vec = self.hog(s)
-        s_hog_vec = np.log(1 + s_hog_vec)  # /500000 #/ 200000.0  # s_hog_vec.max()
+        s_hog_vec = np.log(1+s_hog_vec)
         v_hog_vec = self.hog(v)
-        v_hog_vec = np.log(1 + v_hog_vec)  # /500000 #/ 200000.0  # v_hog_vec.max()
+        # v_hog_vec = v_hog_vec/500000 #/ 200000.0  # v_hog_vec.max()
+        v_hog_vec = np.log(1+v_hog_vec)
         # print(v_hog_vec.shape)
 
-        color_his_r = cv2.calcHist(cv2.cvtColor(local_img.copy(),
-                                                cv2.COLOR_HSV2RGB),
+        # color_his_r = cv2.calcHist(cv2.cvtColor(local_img.copy(),
+        #                                         cv2.COLOR_HSV2RGB),
+        #                            [0],
+        #                            None,
+        #                            [64],
+        #                            [0.0, 256.0])
+        # color_his_r = color_his_r / 256.0
+        # color_his_g = cv2.calcHist(cv2.cvtColor(local_img.copy(),
+        #                                         cv2.COLOR_HSV2RGB),
+        #                            [1],
+        #                            None,
+        #                            [64],
+        #                            [0.0, 256.0])
+        # color_his_g = color_his_g / 256.0
+        # color_his_b = cv2.calcHist(cv2.cvtColor(local_img.copy(),
+        #                                         cv2.COLOR_HSV2RGB),
+        #                            [2],
+        #                            None,
+        #                            [64],
+        #                            [0.0, 256.0])
+        # color_his_b = color_his_b / 256.0
+        # feature_vec = np.zeros([h_hog_vec.shape[0]+s_hog_vec.shape[0]+v_hog_vec.shape[0]+color_his.shape[0]])
+
+
+
+
+        color_his_r = cv2.calcHist(local_img.copy(),
                                    [0],
                                    None,
                                    [64],
                                    [0.0, 256.0])
         color_his_r = color_his_r / 256.0
-        color_his_g = cv2.calcHist(cv2.cvtColor(local_img.copy(),
-                                                cv2.COLOR_HSV2RGB),
+        color_his_g = cv2.calcHist(local_img.copy(),
                                    [1],
                                    None,
                                    [64],
                                    [0.0, 256.0])
         color_his_g = color_his_g / 256.0
-        color_his_b = cv2.calcHist(cv2.cvtColor(local_img.copy(),
-                                                cv2.COLOR_HSV2RGB),
+        color_his_b = cv2.calcHist(local_img.copy(),
                                    [2],
                                    None,
                                    [64],
@@ -682,7 +700,7 @@ class TowerDetecter:
                                       v_hog_vec,
                                       color_his_r.reshape([-1]),
                                       color_his_g.reshape([-1]),
-                                      color_his_b.reshape([-1])])  # ,color_his])
+                                      color_his_b.reshape([-1])])
         feature_vec = feature_vec.astype(dtype=np.float)
 
         return feature_vec

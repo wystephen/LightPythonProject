@@ -31,7 +31,7 @@ if __name__ == '__main__':
                                + str(ti) + '.png')
         td = PowerTowerDetector.TowerDetecter(im, False)
 
-        feature_list, label_list = td.dataset_builder(win_size_list=[500],
+        feature_list, label_list = td.dataset_builder(win_size_list=[400],
                                                       label_img=label_img.copy())
         num_counter += len(feature_list)
         print(len(total_feature_list))

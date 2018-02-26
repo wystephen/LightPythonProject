@@ -29,13 +29,11 @@ if __name__ == '__main__':
         im = cv2.imread(t_name)
         td = PowerTowerDetector.TowerDetecter(im, True)
 
-        label_img = cv2.imread('label_image\\Label_'
-                               + str(ti) + '.png')
 
         td.sub_regeion_classify(clf_model=clf_model,
-                                label_img=label_img,
-                                win_size_list=[500])
+                                label_img=None,
+                                win_size_list=[400])
 
-        cv2.imwrite('./res_img/' + name, td.original_img)
+        cv2.imwrite( str(ti)+'.jpg', td.original_img)
 
         cv2.waitKey()
