@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     detector_list = list()
     ti = 0
-    clf_model = joblib.load('svm.m')
+    clf_model = joblib.load('model/svm/train_model.m')
 
     for name in os.listdir('./image'):
         ti += 1
@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
         td.sub_regeion_classify(clf_model=clf_model,
                                 label_img=label_img,
-                                win_size_list=[300,500,1000])
+                                win_size_list=[500])
 
         cv2.imwrite('./res_img/' + name, td.original_img)
 

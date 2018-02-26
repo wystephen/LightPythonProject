@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     print(len(np.where(y > 0.5)[0]))
     weight = np.ones_like(y)
-    weight[np.where(y < 0.5)] = 5.0
+    weight[np.where(y < 0.5)] = 2.0
 
     clf = svm.SVC(kernel='rbf')
 

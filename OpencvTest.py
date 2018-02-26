@@ -31,14 +31,14 @@ if __name__ == '__main__':
         print(name)
         t_name = 'image\\' + name
         im = cv2.imread(t_name)
-        td = PowerTowerDetector.TowerDetecter(im, True)
+        td = PowerTowerDetector.TowerDetecter(im, False)
 
         label_img = cv2.imread('label_image\\Label_'
                                + str(ti) + '.png')
 
         td.sub_regeion_classify(clf_model=clf_model,
                                 label_img=label_img,
-                                win_size_list=[300,500,1000])
+                                win_size_list=[500])
 
         total_feature.extend(td.feature_list)
 
@@ -62,10 +62,10 @@ if __name__ == '__main__':
     print('feature:',accuracy_score(data_y,pre_y_feature))
     print('data:', accuracy_score(data_y,pre_y_data))
 
-    the_clf = svm.SVC(kernel='rbf')
-    the_clf.fit(data_feature, data_y)
-    print(accuracy_score(data_y,the_clf.predict(data_feature)))
-    joblib.dump(the_clf,'svm.m')
+    # the_clf = svm.SVC(kernel='rbf')
+    # the_clf.fit(data_feature, data_y)
+    # print(accuracy_score(data_y,the_clf.predict(data_feature)))
+    # joblib.dump(the_clf,'svm.m')
 
 
     # plt.figure()
