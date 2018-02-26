@@ -33,6 +33,7 @@ if __name__ == '__main__':
         img = image_list[i]
         plt.subplot(2,3,i+1)
         plt.imshow(img)
+    # cv2.createLineSegmentDetector()
 
 
     plt.show()

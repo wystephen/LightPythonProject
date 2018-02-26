@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 import math
 
+from HogDescriptor import Hog_descriptor
 
 class TowerDetecter:
     def __init__(self, img, debug_flag=False):
@@ -536,6 +537,61 @@ class TowerDetecter:
 
         self.tAddImg('both', self.both_img)
         self.tAddImg('contour', self.contour_img)
+
+
+    def dataset_builder(self,
+                       win_size_list = [200],
+                       label_img=None):
+        '''
+
+        :param win_size_list:
+        :param label_img:
+        :return:
+        '''
+        # cv2.HOGDescriptor.detectMultiScale()
+        self.result_imgs = list()
+        feature_list = list()
+        label_list = list()
+
+        for win_size in win_size_list:
+            tmp_res_img = self.original_img.copy()
+            tmp_mask_img = np.zeros(
+                [int(self.original_img.shape[0] / win_size + 1), int(self.original_img.shape[1] / win_size + 1)],
+                dtype=np.uint8)
+            for i in range(0, self.original_img.shape[0], win_size):
+                for j in range(0, self.original_img.shape[1], win_size):
+                    end_x = min(i + win_size, self.original_img.shape[0])
+                    end_y = min(j + win_size, self.original_img.shape[1])
+                    # tmp_res_img[i:end_x, j:end_y, :], is_tower_flag = \
+                    #     self.sub_image_process(self.original_img[i:end_x, j:end_y, :])
+                    # if is_tower_flag:
+                    #     tmp_mask_img[int(i / win_size), int(j / win_size)] = 255
+                    # feature = cv2.HOGDescriptor.compute(
+                    #     cv2.resize(self.original_img[i:end_x,j:end_y,0],
+                    #                (50,50)),
+                    #     winStride=
+                    #
+                    # )
+                    feature_list.append(self.feature_extract(
+                        self.original_img[i:end_x,j:end_y]
+                    ))
+                    if label_img is None:
+                        label_list.append(0)
+                    else:
+                        counter = np.where(label_img[i:end_x,j:end_y]>0)
+                        if float(counter)>0.7*(float(end_x-i)*float(end_y-j)):
+                            label_list.append(1)
+                        else:
+                            label_list.append(0)
+
+
+    def feature_extract(self,img):
+        local_img = cv2.resize(img,(100,100))
+        hd = Hog_descriptor(local_img,cell_size=10,bin_size=5)
+        hog_feagure_vec, hog_img = hd.extract()
+        print(hog_feagure_vec.shape)
+
+
 
 
     def keyPointProcess(self):
