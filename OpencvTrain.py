@@ -25,9 +25,9 @@ if __name__ == '__main__':
         print(name)
         t_name = 'image\\' + name
         im = cv2.imread(t_name)
-        label_img = cv2.imread('label_image\\'
-                           +name.split('.')[0]+'.png')
-        td = PowerTowerDetector.TowerDetecter(im, True)
+        label_img = cv2.imread('label_image\\Label_'
+                           +str(ti)+'.png')
+        td = PowerTowerDetector.TowerDetecter(im, False)
 
         feature_list, label_list = td.dataset_builder(label_img=label_img)
         total_feature_list.extend(feature_list)

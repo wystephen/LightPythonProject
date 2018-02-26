@@ -17,6 +17,10 @@ import math
 from HogDescriptor import Hog_descriptor
 
 
+from sklearn import  svm
+from sklearn.externals import joblib
+
+
 class TowerDetecter:
     def __init__(self, img, debug_flag=False):
         '''
@@ -51,6 +55,28 @@ class TowerDetecter:
         if self.debug_flag:
             cv2.namedWindow(str_name, cv2.WINDOW_GUI_NORMAL)
             cv2.imshow(str_name, img)
+
+    def sub_regeion_classify(self, clf_model,
+                             win_size_list=[200],
+                             ):
+        self.result_imgs = list()
+
+        for win_size in win_size_list:
+            tmp_res_img = self.original_img.copy()
+            tmp_mask_img = np.zeros(
+                [int(self.original_img.shape[0] / win_size + 1), int(self.original_img.shape[1] / win_size + 1)],
+                dtype=np.uint8)
+            for i in range(0, self.original_img.shape[0], win_size):
+                for j in range(0, self.original_img.shape[1], win_size):
+                    end_x = min(i + win_size, self.original_img.shape[0])
+                    end_y = min(j + win_size, self.original_img.shape[1])
+                    # tmp_res_img[i:end_x, j:end_y, :], is_tower_flag = \
+                    #     self.sub_image_process(self.original_img[i:end_x, j:end_y, :])
+                    # if is_tower_flag:
+                    #     tmp_mask_img[int(i / win_size), int(j / win_size)] = 255
+                    feature = self.feature_extract(self.original_img[i:end_x,j:end_y])
+                    # if clf_model.predict()
+                    print(clf_model.predict(feature.reshape([1,-1])))
 
     def multiLayerProcess(self, win_size_list=[200]):
         self.result_imgs = list()
@@ -138,14 +164,6 @@ class TowerDetecter:
         self.s_line = self.detectAnddraw(self.s_canny)
         self.v_line = self.detectAnddraw(self.v_canny)
 
-        # self.sub_img = cv2.addWeighted(cv2.cvtColor(color_mask, cv2.COLOR_GRAY2RGB)
-        #                                , 0.5, self.sub_img, 0.5, 0)
-        # self.sub_img[:,:,0] = self.h_canny
-        # self.sub_img[:,:,0] = self.h_line
-        # self.sub_img[:,:,1] = self.s_canny
-        # self.sub_img[:,:,1] = self.s_line
-        # self.sub_img[:,:,2] = self.v_canny
-        # self.sub_img[:,:,2] = self.v_line
         self.sub_std_img = np.std(self.sub_img, axis=2)
         self.grey_mask_img = np.ones_like(self.sub_std_img, dtype=np.uint8)
         # grey must exist.
@@ -578,8 +596,9 @@ class TowerDetecter:
                     if label_img is None:
                         label_list.append(0)
                     else:
+                        # print('isn\'t None')
                         counter = np.where(label_img[i:end_x, j:end_y] > 0)
-                        if float(counter) > 0.7 * (float(end_x - i) * float(end_y - j)):
+                        if float(np.count_nonzero(label_img[i:end_x,j:end_y])) > 0.7 * (float(end_x - i) * float(end_y - j)):
                             label_list.append(1)
                         else:
                             label_list.append(0)
@@ -611,32 +630,33 @@ class TowerDetecter:
         # hd = Hog_descriptor(v ,cell_size=10,bin_size=10)
         # hog_feature_vec, hog_img = hd.extract()
         h_hog_vec = self.hog(h)
-        h_hog_vec = h_hog_vec / h_hog_vec.max()
+        h_hog_vec = h_hog_vec / 2000.0#h_hog_vec.max()
         s_hog_vec = self.hog(s)
-        s_hog_vec = s_hog_vec / s_hog_vec.max()
+        s_hog_vec = s_hog_vec / 2000.0 #s_hog_vec.max()
         v_hog_vec = self.hog(v)
-        v_hog_vec = v_hog_vec / v_hog_vec.max()
+        v_hog_vec = v_hog_vec / 2000.0 #v_hog_vec.max()
+
         color_his_r = cv2.calcHist(cv2.cvtColor(local_img.copy(),
                                               cv2.COLOR_HSV2RGB),
                                  [0],
                                  None,
                                  [64],
                                  [0, 256])
-        color_his_r = color_his_r / color_his_r.max()
+        color_his_r = color_his_r / 256.0
         color_his_g = cv2.calcHist(cv2.cvtColor(local_img.copy(),
                                               cv2.COLOR_HSV2RGB),
                                  [1],
                                  None,
                                  [64],
                                  [0, 256])
-        color_his_g = color_his_g / color_his_g.max()
+        color_his_g = color_his_g / 256.0
         color_his_b = cv2.calcHist(cv2.cvtColor(local_img.copy(),
                                               cv2.COLOR_HSV2RGB),
                                  [2],
                                  None,
                                  [64],
                                  [0, 256])
-        color_his_b = color_his_b / color_his_b.max()
+        color_his_b = color_his_b / 256.0
         # feature_vec = np.zeros([h_hog_vec.shape[0]+s_hog_vec.shape[0]+v_hog_vec.shape[0]+color_his.shape[0]])
         feature_vec = np.concatenate([h_hog_vec,
                                       s_hog_vec,

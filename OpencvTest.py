@@ -11,6 +11,9 @@ import os
 
 import PowerTowerDetector
 
+from sklearn import svm
+from sklearn.externals import joblib
+
 if __name__ == '__main__':
 
     detector_list = list()
@@ -30,6 +33,9 @@ if __name__ == '__main__':
         # td.contour_process()
         # td.keyPointProcess()
         # td.hsvProcess()
+
+        td.sub_regeion_classify(win_size_list=[200],
+                                clf_model=joblib.load('model/svm/train_model.m'))
 
         cv2.waitKey()
 
