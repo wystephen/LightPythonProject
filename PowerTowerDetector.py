@@ -58,6 +58,13 @@ class TowerDetecter:
     def sub_regeion_classify(self, clf_model,
                              win_size_list=[200],
                              label_img=None):
+        '''
+        Detect power tower (pylon) at sub-area and mark it.
+        :param clf_model: classification model(pre-trained).
+        :param win_size_list: size of sub_area. (use 200 as default)
+        :param label_img: use for compare the estimated result and reference resutl
+        :return: None.
+        '''
         self.feature_list = list()
         tmp_src_img = self.original_img.copy()
         for win_size in win_size_list:
@@ -65,15 +72,21 @@ class TowerDetecter:
             tmp_mask_img = np.zeros(
                 [int(self.original_img.shape[0] / win_size + 1), int(self.original_img.shape[1] / win_size + 1)],
                 dtype=np.uint8)
+            # search over the whole image
             for i in range(0, self.original_img.shape[0], win_size):
                 for j in range(0, self.original_img.shape[1], win_size):
+                    # keep index in the image
                     end_x = min(i + win_size, self.original_img.shape[0])
                     end_y = min(j + win_size, self.original_img.shape[1])
+                    #extract feature
                     feature = self.feature_extract(tmp_src_img[i:end_x, j:end_y])
                     self.feature_list.append(feature)
                     # print(feature)
+                    # recognize model according to feature
                     y = clf_model.predict(feature.reshape([1, -1]))
+
                     if y[0] == 1:
+                        # draw red rectangle if it is power tower.
                         self.original_img = cv2.rectangle(self.original_img,
                                                           (j, i),
                                                           (end_y, end_x),
@@ -213,6 +226,15 @@ class TowerDetecter:
                       maxLineGap=5,
                       threshold=30,
                       other_condition=True):
+        '''
+         detect line and draw it.
+        :param img:
+        :param minLineLength:
+        :param maxLineGap:
+        :param threshold:
+        :param other_condition:
+        :return:
+        '''
 
         # 直线检测，（电线杆上有直线，自然界直线比较少）
         line_list = (transform.probabilistic_hough_line(img, threshold=threshold,
@@ -246,6 +268,16 @@ class TowerDetecter:
                         maxLineGap=5,
                         threshold=30,
                         other_condition=True):
+        '''
+
+        :param src_img:
+        :param img:
+        :param minLineLength:
+        :param maxLineGap:
+        :param threshold:
+        :param other_condition:
+        :return:
+        '''
 
         # 直线检测，（电线杆上有直线，自然界直线比较少）
         line_list = (transform.probabilistic_hough_line(img, threshold=threshold,
@@ -258,11 +290,13 @@ class TowerDetecter:
 
         return cv2.cvtColor(lines, cv2.COLOR_RGB2GRAY), line_list
 
-    '''
-    process the image
-    '''
+
 
     def preprocess(self):
+        '''
+
+        :return:
+        '''
         # 用hSV 色彩空间表示 图像
         self.hsv_img = cv2.cvtColor(self.src_img,
                                     cv2.COLOR_RGB2HSV)
@@ -326,6 +360,10 @@ class TowerDetecter:
         self.tAddImg('closed', self.morph_img)
 
     def hsvProcess(self):
+        '''
+        convert into hsv color image and find edge.
+        :return:
+        '''
         self.hsv_img = cv2.cvtColor(self.src_img, cv2.COLOR_BGR2HSV)
         b = self.src_img[:, :, 0]
         g = self.src_img[:, :, 1]
@@ -378,11 +416,13 @@ class TowerDetecter:
         self.tAddImg('vline ', self.v_line_img)
         self.tAddImg('contour', self.contour_img)
 
-    '''
-    process the image
-    '''
 
     def preprocess2(self):
+        '''
+        detect power tower .
+        Low accuracy.
+        :return:
+        '''
         # 用hSV 色彩空间表示 图像
         self.hsv_img = cv2.cvtColor(self.src_img,
                                     cv2.COLOR_RGB2HSV)
@@ -502,6 +542,10 @@ class TowerDetecter:
         self.tAddImg('result', self.result_img)
 
     def contour_process(self):
+        '''
+        It's not acceptable.
+        :return:
+        '''
         # 用hSV 色彩空间表示 图像
         self.hsv_img = cv2.cvtColor(self.src_img,
                                     cv2.COLOR_RGB2HSV)
@@ -576,6 +620,7 @@ class TowerDetecter:
                         win_size_list=[200],
                         label_img=None):
         '''
+        build up dataset for training.
 
         :param win_size_list:
         :param label_img:
@@ -589,14 +634,17 @@ class TowerDetecter:
             tmp_mask_img = np.zeros(
                 [int(self.original_img.shape[0] / win_size + 1), int(self.original_img.shape[1] / win_size + 1)],
                 dtype=np.uint8)
+            # search over the whole image
             for i in range(0, self.original_img.shape[0], win_size):
                 for j in range(0, self.original_img.shape[1], win_size):
                     end_x = min(i + win_size, self.original_img.shape[0])
                     end_y = min(j + win_size, self.original_img.shape[1])
+                    # extrac feature of sub-area
                     feature = self.feature_extract(
                         tmp_src_img[i:end_x,j:end_y]
                     )
 
+                    # append feature
                     feature_list.append(feature)
                     if label_img is None:
                         label_list.append(0)
@@ -616,6 +664,12 @@ class TowerDetecter:
         return feature_list, label_list
 
     def hog(self, img):
+        '''
+        compute hog feature of image
+        reference : HOG feature.
+        :param img:  input image.
+        :return: histogram of HOG feature
+        '''
         gx = cv2.Sobel(img, cv2.CV_32F, 1, 0)
         gy = cv2.Sobel(img, cv2.CV_32F, 0, 1)
         mag, ang = cv2.cartToPolar(gx, gy)
@@ -632,50 +686,32 @@ class TowerDetecter:
         return hist
 
     def feature_extract(self, img):
+        '''
+        extract two type of feature:
+        HOG feature in H S V channel respectively
+        Color histogram in H S V channel respectively
+        :param img: input image.
+        :return: feature (20 + 20 + 20 + 64 + 64 + 64 =  252) dim
+        '''
         local_img = cv2.resize(img.copy(), (100, 100))
+
+        # convert into HSV color space
         local_img = cv2.cvtColor(local_img, cv2.COLOR_BGR2HSV)
         h = local_img[:, :, 0]
         s = local_img[:, :, 1]
         v = local_img[:, :, 2]
 
-        # hd = Hog_descriptor(v ,cell_size=10,bin_size=10)
-        # hog_feature_vec, hog_img = hd.extract()
+        # extract hog histogram and use log function as original value is too large.
         h_hog_vec = self.hog(h)
         h_hog_vec = np.log(1 + h_hog_vec)  # /500000 #/ 200000.0  # h_hog_vec.max()
-        # h_hog_vec = h_hog_vec /500000 #/ 200000.0  # h_hog_vec.max()
         s_hog_vec = self.hog(s)
         s_hog_vec = np.log(1+s_hog_vec)
         v_hog_vec = self.hog(v)
-        # v_hog_vec = v_hog_vec/500000 #/ 200000.0  # v_hog_vec.max()
         v_hog_vec = np.log(1+v_hog_vec)
-        # print(v_hog_vec.shape)
-
-        # color_his_r = cv2.calcHist(cv2.cvtColor(local_img.copy(),
-        #                                         cv2.COLOR_HSV2RGB),
-        #                            [0],
-        #                            None,
-        #                            [64],
-        #                            [0.0, 256.0])
-        # color_his_r = color_his_r / 256.0
-        # color_his_g = cv2.calcHist(cv2.cvtColor(local_img.copy(),
-        #                                         cv2.COLOR_HSV2RGB),
-        #                            [1],
-        #                            None,
-        #                            [64],
-        #                            [0.0, 256.0])
-        # color_his_g = color_his_g / 256.0
-        # color_his_b = cv2.calcHist(cv2.cvtColor(local_img.copy(),
-        #                                         cv2.COLOR_HSV2RGB),
-        #                            [2],
-        #                            None,
-        #                            [64],
-        #                            [0.0, 256.0])
-        # color_his_b = color_his_b / 256.0
-        # feature_vec = np.zeros([h_hog_vec.shape[0]+s_hog_vec.shape[0]+v_hog_vec.shape[0]+color_his.shape[0]])
 
 
-
-
+        # Extract color space histogram feature.
+        # acturally is hsv not rgb!!!!
         color_his_r = cv2.calcHist(local_img.copy(),
                                    [0],
                                    None,
@@ -694,7 +730,9 @@ class TowerDetecter:
                                    [64],
                                    [0.0, 256.0])
         color_his_b = color_his_b / 256.0
-        # feature_vec = np.zeros([h_hog_vec.shape[0]+s_hog_vec.shape[0]+v_hog_vec.shape[0]+color_his.shape[0]])
+
+
+        # Connect all feature.
         feature_vec = np.concatenate([h_hog_vec,
                                       s_hog_vec,
                                       v_hog_vec,
@@ -709,6 +747,10 @@ class TowerDetecter:
         # return hog_feature_vec
 
     def keyPointProcess(self):
+        '''
+        Key Point find and show.
+        :return:
+        '''
         orb = cv2.ORB_create(5000)
 
         kp, des = orb.detectAndCompute(self.src_img, None)
@@ -719,6 +761,11 @@ class TowerDetecter:
         self.tAddImg('key', self.key_img)
 
     def pltShow(self, index=0):
+        '''
+         show image (Don't use it.)
+        :param index:
+        :return:
+        '''
         plt.figure(index)
         for i in range(len(self.img_list)):
             # if not 'proc' in self.img_name_list[i] :
