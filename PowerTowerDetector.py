@@ -16,6 +16,7 @@ import math
 
 from HogDescriptor import Hog_descriptor
 
+
 class TowerDetecter:
     def __init__(self, img, debug_flag=False):
         '''
@@ -538,10 +539,9 @@ class TowerDetecter:
         self.tAddImg('both', self.both_img)
         self.tAddImg('contour', self.contour_img)
 
-
     def dataset_builder(self,
-                       win_size_list = [200],
-                       label_img=None):
+                        win_size_list=[200],
+                        label_img=None):
         '''
 
         :param win_size_list:
@@ -573,37 +573,92 @@ class TowerDetecter:
                     #
                     # )
                     feature_list.append(self.feature_extract(
-                        self.original_img[i:end_x,j:end_y]
+                        self.original_img[i:end_x, j:end_y]
                     ))
                     if label_img is None:
                         label_list.append(0)
                     else:
-                        counter = np.where(label_img[i:end_x,j:end_y]>0)
-                        if float(counter)>0.7*(float(end_x-i)*float(end_y-j)):
+                        counter = np.where(label_img[i:end_x, j:end_y] > 0)
+                        if float(counter) > 0.7 * (float(end_x - i) * float(end_y - j)):
                             label_list.append(1)
                         else:
                             label_list.append(0)
+        return feature_list, label_list
 
+    def hog(self, img):
+        gx = cv2.Sobel(img, cv2.CV_32F, 1, 0)
+        gy = cv2.Sobel(img, cv2.CV_32F, 0, 1)
+        mag, ang = cv2.cartToPolar(gx, gy)
 
-    def feature_extract(self,img):
-        local_img = cv2.resize(img,(100,100))
-        hd = Hog_descriptor(local_img,cell_size=10,bin_size=5)
-        hog_feagure_vec, hog_img = hd.extract()
-        print(hog_feagure_vec.shape)
+        bin_n = 5
+        # quantizing binvalues in (0...16)
+        bins = np.int32(bin_n * ang / (2 * np.pi))
 
+        # Divide to 4 sub-squares
+        bin_cells = bins[:10, :10], bins[10:, :10], bins[:10, 10:], bins[10:, 10:]
+        mag_cells = mag[:10, :10], mag[10:, :10], mag[:10, 10:], mag[10:, 10:]
+        hists = [np.bincount(b.ravel(), m.ravel(), bin_n) for b, m in zip(bin_cells, mag_cells)]
+        hist = np.hstack(hists)
+        return hist
 
+    def feature_extract(self, img):
+        local_img = cv2.resize(img.copy(), (100, 100))
+        local_img = cv2.cvtColor(local_img, cv2.COLOR_BGR2HSV)
+        h = local_img[:, :, 0]
+        s = local_img[:, :, 1]
+        v = local_img[:, :, 2]
 
+        # hd = Hog_descriptor(v ,cell_size=10,bin_size=10)
+        # hog_feature_vec, hog_img = hd.extract()
+        h_hog_vec = self.hog(h)
+        h_hog_vec = h_hog_vec / h_hog_vec.max()
+        s_hog_vec = self.hog(s)
+        s_hog_vec = s_hog_vec / s_hog_vec.max()
+        v_hog_vec = self.hog(v)
+        v_hog_vec = v_hog_vec / v_hog_vec.max()
+        color_his_r = cv2.calcHist(cv2.cvtColor(local_img.copy(),
+                                              cv2.COLOR_HSV2RGB),
+                                 [0],
+                                 None,
+                                 [64],
+                                 [0, 256])
+        color_his_r = color_his_r / color_his_r.max()
+        color_his_g = cv2.calcHist(cv2.cvtColor(local_img.copy(),
+                                              cv2.COLOR_HSV2RGB),
+                                 [1],
+                                 None,
+                                 [64],
+                                 [0, 256])
+        color_his_g = color_his_g / color_his_g.max()
+        color_his_b = cv2.calcHist(cv2.cvtColor(local_img.copy(),
+                                              cv2.COLOR_HSV2RGB),
+                                 [2],
+                                 None,
+                                 [64],
+                                 [0, 256])
+        color_his_b = color_his_b / color_his_b.max()
+        # feature_vec = np.zeros([h_hog_vec.shape[0]+s_hog_vec.shape[0]+v_hog_vec.shape[0]+color_his.shape[0]])
+        feature_vec = np.concatenate([h_hog_vec,
+                                      s_hog_vec,
+                                      v_hog_vec,
+                                      color_his_r.reshape([-1]),
+                                      color_his_g.reshape([-1]),
+                                      color_his_b.reshape([-1])])  # ,color_his])
+
+        return feature_vec
+
+        # print(hog_feature_vec.shape)
+        # return hog_feature_vec
 
     def keyPointProcess(self):
         orb = cv2.ORB_create(5000)
 
-        kp,des = orb.detectAndCompute(self.src_img,None)
+        kp, des = orb.detectAndCompute(self.src_img, None)
 
         self.key_img = self.src_img.copy()
-        cv2.drawKeypoints(self.src_img,kp,self.key_img)
+        cv2.drawKeypoints(self.src_img, kp, self.key_img)
 
-        self.tAddImg('key',self.key_img)
-
+        self.tAddImg('key', self.key_img)
 
     def pltShow(self, index=0):
         plt.figure(index)
