@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 
 import math
 
-from HogDescriptor import Hog_descriptor
 
 from sklearn import svm
 from sklearn.externals import joblib
